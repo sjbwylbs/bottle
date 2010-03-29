@@ -120,25 +120,42 @@ Note that ``HEAD`` requests will fall back to ``GET`` routes and all requests wi
 Dynamic Routes
 --------------------------------------------------------------------------------
 
-Static routes are fine, but URLs may carry information as well. Let's add a ``:name`` placeholder to our route.
-
-::
+Static routes are fine, but URLs may carry information as well. Let's add a ``:name`` wildcard to our route::
 
     from bottle import route
     @route('/hello/:name')
     def hello(name):
         return "Hello %s!" % name
 
-This dynamic route matches ``/hello/alice`` as well as ``/hello/bob``. In fact, the ``:name`` part will match everything but a slash (``/``), so any name is possible. ``/hello/bob/and/alice`` or ``/hellobob`` won't match. Each part of the URL covered by a placeholder is provided as a keyword argument to your handler callback.
-
-A normal placeholder matches everything up to the next slash. To change that, you can add a regular expression pattern::
+This dynamic route matches requests to ``/hello/alice`` as well as ``/hello/bob``. In fact, the ``:name`` wildcard accepts everything but a slash. To change that, you can add a regular expression::
 
     from bottle import route
     @route('/get_object/:id#[0-9]+#')
     def get(id):
         return "Object ID: %d" % int(id)
 
-As you can see, URL parameters remain strings, even if they are configured to only match digits. You have to explicitly cast them into the type you need.
+Each part of the URL covered by a wildcard is passed to your handler callback as a keyword argument. These arguments are strings, even if the wildcards are configured to only match digits. You have to explicitly cast them into other types.
+
+.. rubric:: The Dynamic Route Wildcard Syntax in Detail
+
+.. productionlist::
+   wildcard: ":" [`wildcard_name`] ["#" `regular_expression` "#"]
+   wildcard_name: `letter` (`letter`|`digit`)*
+
+A dynamic route may contain any number of wildcards. Each wildcard starts with a colon followed by an optional name and an optional regular expression. The name is alpha-numeric (not starting with digits) and unique for that route. The regular expression is enclosed in ``#`` and defaults to :regexp:`[^/]+`. If the wildcard is directly followed by alphanumeric characters, you can add an empty regular expression (``##``) to mark the end of the wildcard name. Here are some examples::
+
+   "/some/:data" # Named wildcard
+   "/some/:id#[0-9]+#" # Restricted wildcard
+   "/index:#(.html)?#" # Anonymous wildcard
+   "/some/:/path" # Another anonymous wildcard
+
+To escape a colon, add another one::
+
+   "/this/path/contains/::colons" # Escaped wildcard
+
+Anonymous wildcards are *not* passed to the handler function.
+
+
 
 
 
