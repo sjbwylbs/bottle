@@ -1,11 +1,13 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-import bottle
 import unittest
 import doctest
 import glob
-import sys
+import sys, os
+os.chdir(os.path.abspath(os.path.dirname(__file__)))
+sys.path.insert(0, '../')
+import bottle
 
 if __name__ == '__main__':
     bottle.debug(True)
