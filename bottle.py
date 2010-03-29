@@ -185,96 +185,86 @@ class RouteBuildError(RouteError):
 
 class Route(object):
     ''' Represents a single route and can parse the dynamic route syntax '''
-    syntax = re.compile(r'(.*?)(?<!\\):([a-zA-Z_]+)?(?:#(.*?)#)?')
+    delimiter = ':'
+    bounds = ('#','#')
+    idpattern = '[a-zA-Z]+[a-zA-Z0-9]*'
     default = '[^/]+'
 
     def __init__(self, route, target, name=None, static=False):
-        """ Create a Route. The route string may contain `:key`,
-            `:key#regexp#` or `:#regexp#` tokens for each dynamic part of the
-            route. These can be escaped with a backslash infront of the `:`
-            and are compleately ignored if static is true. A name may be used
-            to refer to this route later (depends on Router)
+        """ Create a new Route. The route string may contain `:key` or 
+            `:key#regexp#` wildcards. `::` is an escape and replaced by a single
+            colon. Wildcards are compleately ignored if the `static` parameter
+            is true.
         """
-        self.route = route
+        self.route = route if not static else route.replace(':','::')
         self.target = target
         self.name = name
-        self._static = static
-        self._tokens = None
 
+    @property
     def tokens(self):
-        """ Return a list of (type, value) tokens. """
-        if not self._tokens:
-            self._tokens = list(self.tokenise(self.route))
-        return self._tokens
+        ''' Iterator yielding the tokenized parts of the route.
+            Static segments of the route are represented by a string token.
+            Wildcards result in a `(name, regexp)` tuple contining strings or
+            `None` values. The first token is always a (posible empty) string.
+            Then, tuples and strings are returned by turns. '''
+        syntax =  r'(%s+)(%s)?' % (self.delimiter, self.idpattern)
+        syntax += r'(?:%s(.*?)%s)?' % self.bounds
+        offset = 0
+        for match in re.finditer(syntax, self.route):
+            if len(match.group(1)) % 2:
+                yield self.route[offset:match.end(1)-1]\
+                          .replace(self.delimiter*2, self.delimiter)
+                yield (match.group(2) or None, match.group(3) or None)
+                offset = match.end(0)
+        yield self.route[offset:].replace(self.delimiter*2, self.delimiter)
 
-    @classmethod
-    def tokenise(cls, route):
-        ''' Split a string into an iterator of (type, value) tokens. '''
-        match = None
-        for match in cls.syntax.finditer(route):
-            pre, name, rex = match.groups()
-            if pre: yield ('TXT', pre.replace('\\:',':'))
-            if rex and name: yield ('VAR', (rex, name))
-            elif name: yield ('VAR', (cls.default, name))
-            elif rex: yield ('ANON', rex)
-        if not match:
-            yield ('TXT', route.replace('\\:',':'))
-        elif match.end() < len(route):
-            yield ('TXT', route[match.end():].replace('\\:',':'))
+    @property
+    def pattern(self, prefix=''):
+        ''' Regular expression with named groupes '''
+        for i, part in enumerate(self.tokens):
+            if i % 2:
+                prefix += '(?P<%s>' % part[0] if part[0] else '(?:'
+                prefix += '%s)' % (part[1] or self.default)
+            else:
+                prefix += re.escape(part)
+        return prefix
 
-    def group_re(self):
-        ''' Return a regexp pattern with named groups '''
-        out = ''
-        for token, data in self.tokens():
-            if   token == 'TXT':  out += re.escape(data)
-            elif token == 'VAR':  out += '(?P<%s>%s)' % (data[1], data[0])
-            elif token == 'ANON': out += '(?:%s)' % data
-        return out
+    @property
+    def flat_pattern(self, prefix=''):
+        ''' Regular expression with non-grouping parentheses only '''
+        for i, part in enumerate(self.tokens):
+            if i % 2: prefix += '(?:%s)' % (part[1] or self.default)
+            else:     prefix += re.escape(part)
+        return prefix
 
-    def flat_re(self):
-        ''' Return a regexp pattern with non-grouping parentheses '''
-        return re.sub(r'\(\?P<[^>]*>|\((?!\?)', '(?:', self.group_re())
-
-    def format_str(self):
-        ''' Return a format string with named fields. '''
-        if self.static:
-            return self.route.replace('%','%%')
-        out, i = '', 0
-        for token, value in self.tokens():
-            if token == 'TXT': out += value.replace('%','%%')
-            elif token == 'ANON': out += '%%(anon%d)s' % i; i+=1
-            elif token == 'VAR': out += '%%(%s)s' % value[1]
-        return out
+    @property
+    def format_string(self, prefix=''):
+        ''' Format string. '''
+        for i, part in enumerate(self.tokens):
+            if i % 2: prefix += '%%(%s)s' % part[0] or 'anon%d' % i // 2
+            else:     prefix += part.replace('%','%%')
+        return prefix
 
     @property
     def static(self):
-        return not self.is_dynamic()
-
-    def is_dynamic(self):
-        ''' Return true if the route contains dynamic parts '''
-        if not self._static:
-            for token, value in self.tokens():
-                if token != 'TXT':
-                    return True
-        self._static = True
-        return False
+        ''' True if the route contains no wildcards. False otherwise. '''
+        return len(list(self.tokens)) == 1
 
     def __repr__(self):
         return self.route
+        
+    def __str__(self):
+        return self.route.replace(self.delimiter*2, self.delimiter)
 
     def __eq__(self, other):
-        return self.route == other.route\
-           and self.static == other.static\
-           and self.name == other.name\
-           and self.target == other.target
+        return self.route == other.route
 
 
 class Router(object):
     ''' A route associates a string (e.g. URL) with an object (e.g. function)
-        Some dynamic routes may extract parts of the string and provide them as
-        a dictionary. This router matches a string against multiple routes and
-        returns the associated object along with the extracted data.
-    '''
+        Dynamic routes may contain wildcards. This router matches a string
+        against multiple routes and returns the first matching object along
+        with the values of the named wildcards. '''
 
     def __init__(self):
         self.routes = []     # List of all installed routes
@@ -283,46 +273,50 @@ class Router(object):
         self.named = dict()  # Cache for named routes and their format strings
 
     def add(self, *a, **ka):
-        """ Adds a route->target pair or a Route object to the Router.
-            See Route() for details.
+        """ Adds a route->target pair or a :class:`Route` object to the Router.
         """
         route = a[0] if a and isinstance(a[0], Route) else Route(*a, **ka)
         self.routes.append(route)
         if route.name:
-            self.named[route.name] = route.format_str()
+            self.named[route.name] = route.format_string
         if route.static:
-            self.static[route.route] = route.target
+            self.static[str(route)] = route.target
             return
-        gpatt = route.group_re()
-        fpatt = route.flat_re()
+        gpatt = route.pattern
+        fpatt = route.flat_pattern
         try:
             gregexp = re.compile('^(%s)$' % gpatt) if '(?P' in gpatt else None
             combined = '%s|(^%s$)' % (self.dynamic[-1][0].pattern, fpatt)
             self.dynamic[-1] = (re.compile(combined), self.dynamic[-1][1])
             self.dynamic[-1][1].append((route.target, gregexp))
-        except (AssertionError, IndexError), e: # AssertionError: Too many groups
-            self.dynamic.append((re.compile('(^%s$)'%fpatt),[(route.target, gregexp)]))
+        except (AssertionError, IndexError), e: # AssertionError: >100 groups
+            self.dynamic.append((re.compile('(^%s$)'%fpatt), 
+                                 [(route.target, gregexp)]))
         except re.error, e:
             raise RouteSyntaxError("Could not add Route: %s (%s)" % (route, e))
 
     def match(self, uri):
-        ''' Matches an URL and returns a (handler, target) tuple '''
+        ''' Matches an URL and returns a `(target, wildcards)` tuple '''
         if uri in self.static:
             return self.static[uri], {}
         for combined, subroutes in self.dynamic:
             match = combined.match(uri)
             if not match: continue
-            target, groups = subroutes[match.lastindex - 1]
-            groups = groups.match(uri).groupdict() if groups else {}
-            return target, groups
+            target, wildcards = subroutes[match.lastindex - 1]
+            wildcards = wildcards.match(uri).groupdict() if wildcards else {}
+            return target, wildcards
         return None, {}
 
     def build(self, route_name, **args):
         ''' Builds an URL out of a named route and some parameters.'''
-        try:
-            return self.named[route_name] % args
-        except KeyError:
+        template = self.named.get(route_name)
+        if not template:
             raise RouteBuildError("No route found with name '%s'." % route_name)
+        try:
+            return template % args
+        except KeyError:
+            raise RouteBuildError("Failed to build route %s: %s" % \
+                  (template, repr(args)))
 
     def __eq__(self, other):
         return self.routes == other.routes

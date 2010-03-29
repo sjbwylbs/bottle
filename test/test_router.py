@@ -1,5 +1,38 @@
 import unittest
 import bottle
+import itertools
+
+class TestParser(unittest.TestCase):
+    def testTokenier(self):
+        ''' This tests the complete specrum of possible wildcard syntax
+            variations '''
+        head = ('head','') # head | no head
+        delim = ('', ':','::',':::') # no | real | escaped | escaped+real
+        name = ('name','') # named | anonymous
+        regexp = ('','#reg#','##') # default | specified | empty
+        tail = ('tail', ';tail', '') # tail | non-alnum tail | no tail
+        combinations = itertools.product(head, delim, name, regexp, tail)
+
+        for head, delim, name, regexp, tail in combinations:
+            route = ''.join((head, delim, name, regexp, tail))
+            result = list(bottle.Route(route, 'target').tokens)
+            if len(delim) % 2: # This produces a wildcard token
+                # Alpha-numeric tails merge with the name
+                # if they are not separated by a regexp
+                if tail.isalnum() and not regexp:
+                    name, tail = name + tail, ''
+                # The '#' chars are not part of the regexp
+                # and empty or missing regexps default to `None`
+                regexp = regexp[1:-1] if len(regexp) > 2 else None
+                # Anonymous routes have `None` as a name
+                name = name or None
+                # Escaped delimiters are part of the head
+                head += ':' * (len(delim) // 2)
+                reference = [head, (name, regexp), tail]
+            else: # Escaped wildcard
+                reference = [route.replace('::',':')]
+            self.assertEqual(reference, result)
+
 
 class TestRouter(unittest.TestCase):
     def setUp(self):
@@ -10,8 +43,9 @@ class TestRouter(unittest.TestCase):
         match = self.r.match
         add('/static', 'static')
         self.assertEqual(('static', {}), match('/static'))
-        add('/\\:its/:#.+#/:test/:name#[a-z]+#/', 'handler')
-        self.assertEqual(('handler', {'test': 'cruel', 'name': 'world'}), match('/:its/a/cruel/world/'))
+        add('/::its/:#.+#/:test/:name#[a-z]+#/', 'handler')
+        self.assertEqual(('handler', {'test': 'cruel', 'name': 'world'}),
+                         match('/:its/a/cruel/world/'))
         add('/:test', 'notail')
         self.assertEqual(('notail', {'test': 'test'}), match('/test'))
         add(':test/', 'nohead')
