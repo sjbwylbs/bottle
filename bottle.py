@@ -232,10 +232,8 @@ class Route(object):
     @property
     def flat_pattern(self, prefix=''):
         ''' Regular expression with non-grouping parentheses only '''
-        for i, part in enumerate(self.tokens):
-            if i % 2: prefix += '(?:%s)' % (part[1] or self.default)
-            else:     prefix += re.escape(part)
-        return prefix
+        rf = lambda m: m.group(0) if len(m.group(1)) % 2 else m.group(1) + '(?:'
+        return re.sub(r'(\\*)(\(\?P<[^>]*>|\((?!\?))', rf, self.pattern)
 
     @property
     def format_string(self, prefix=''):
