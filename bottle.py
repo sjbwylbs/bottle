@@ -684,9 +684,9 @@ class Request(threading.local, DictMixin):
                 fb = TextIOWrapper(self.body, encoding='ISO-8859-1')
             else:
                 fb = self.body
-            data = cgi.FieldStorage(fp=fb, environ=save_env)
+            data = cgi.FieldStorage(fp=fb, environ=save_env, keep_blank_values=True)
             self._POST = MultiDict()
-            for item in data.list:
+            for item in data.list or []:
                 self._POST[item.name] = item if item.filename else item.value
         return self._POST
 
@@ -726,7 +726,7 @@ class Request(threading.local, DictMixin):
             This implementation currently only supports basic auth and returns
             None on errors.
         """
-        return parse_auth(self.environ.get('HTTP_AUTHORIZATION'))
+        return parse_auth(self.environ.get('HTTP_AUTHORIZATION',''))
 
     @property
     def COOKIES(self):
