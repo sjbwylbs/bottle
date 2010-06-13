@@ -15,12 +15,18 @@ from StringIO import StringIO
 try:
     from io import BytesIO
 except:
+    BytesIO = None
     pass
 import mimetypes
 import uuid
 
 def tob(data):
+    ''' Transforms bytes or unicode into bytes. '''
     return data.encode('utf8') if isinstance(data, unicode) else data
+
+def tobs(data):
+    ''' Transforms bytes or unicode into a byte stream. '''
+    return BytesIO(tob(data)) if BytesIO else StringIO(tob(data))
 
 class ServerTestBase(unittest.TestCase):
     def setUp(self):
@@ -110,9 +116,9 @@ def multipart_environ(fields, files):
         body += 'Content-Type: %s\n\n' % mimetype
         body += content + '\n'
     body += boundary + '--\n'
-    env['CONTENT_LENGTH'] = str(len(body))
     if hasattr(body, 'encode'):
         body = body.encode('utf8')
+    env['CONTENT_LENGTH'] = str(len(body))
     env['wsgi.input'].write(body)
     env['wsgi.input'].seek(0)
     return env

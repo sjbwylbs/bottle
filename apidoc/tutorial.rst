@@ -41,8 +41,6 @@ This tutorial introduces you to the concepts and features of the Bottle web fram
 
 
 
-
-
 Getting started
 ===================
 
@@ -54,15 +52,15 @@ Bottle has no dependencies, so all you need is Python_ (2.5 up to 3.x should wor
         return "Hello World!"
     run(host='localhost', port=8080)
 
-Run this script, visit http://localhost:8080/hello and you will see "Hello World!" in your Browser. So, what happened here?
+So, whats happening here?
 
-1. First we imported some bottle components. The :func:`route` decorator and the :func:`run` function. 
+1. First we import some bottle components. The :func:`route` decorator and the :func:`run` function. 
 2. The :func:`route` :term:`decorator` is used do bind a piece of code to an URL. In this example we want to answer requests to the ``/hello`` URL.
-3. This function will be called every time someone hits the ``/hello`` URL on the web server. It is called a :term:`handler function` or :term:`callback`.
-4. The return value of a handler function will be sent back to the Browser.
+3. This function is the :term:`handler function` or :term:`callback` for the ``/hello`` route. It is called every time someone requests the ``/hello`` URL and is responsable for generating the page content.
+4. In this exmaple we simply return a string to the browser.
 5. Now it is time to start the actual HTTP server. The default is a development server running on 'localhost' port 8080 and serving requests until you hit :kbd:`Control-c`.
 
-
+This is it. Run this script, visit http://localhost:8080/hello and you will see "Hello World!" in your Browser. Of cause this is a very simple example, but it shows the basic concept of how applications are build with bottle. Continue reading and you'll see what else is possible.
 
 
 
@@ -71,7 +69,7 @@ Run this script, visit http://localhost:8080/hello and you will see "Hello World
 Routing
 ==============================================================================
 
-Routes are used to map URLs to callback functions that generate the content for that URLs. Bottle has a :func:`route` decorator to do that. You can add any number of routes to a callback.
+As you have learned before, *routes* are used to map URLs to callback functions. These functions are executed on every request that matches the route and their return value is returned to the browser. You can add any number of routes to a callback using the :func:`route` decorator.
 
 ::
 
@@ -86,30 +84,7 @@ Routes are used to map URLs to callback functions that generate the content for 
     def hello():
         return "Hello World!"
 
-As you can see, URLs and routes have nothing to do with actual files on the web server. Routes are unique names for your callbacks, nothing more and nothing less. Requests to URLs not matching any of the defined routes will result in a 404 HTTP error page.
-
-
-
-.. rubric:: HTTP Request Methods
-
-.. __: http_method_
-
-The HTTP protocol defines several `request methods`__ for different tasks. With no method specified, routes will listen to ``GET`` requests only. To handle other methods such as ``POST``, ``PUT`` or ``DELETE``, you have to add a ``method`` keyword argument to the :func:`route` decorator or use one of the alternative decorators: :func:`get()`, :func:`post()`, :func:`put()` or :func:`delete()`.
-
-Here is an example for a route handling ``POST`` requests::
-
-    from bottle import post, request
-    @post('/form/submit') # or @route('/form/submit', method='POST')
-    def form_submit():
-        form_data = request.POST
-        do_something_with(form_data)
-        return "Done"
-
-In this example we used :attr:`Request.POST` to access form data as described in the :ref:`tutorial-request` section.
-
-The special ``ANY`` method works as a low priority fallback. It matches requests regardless of their HTTP method but only if no other more specific route is installed. Also note that ``HEAD`` requests fall back to ``GET`` routes automatically, so you don't have to specify them explicitly.
-
-To sum it up: ``HEAD`` requests fall back to ``GET`` routes and all requests fall back to ``ANY`` routes, if there is no matching route for the original request method.
+As you can see, URLs and routes have nothing to do with actual files on the web server. Routes are unique names for your callbacks, nothing more and nothing less. All URLs not covered by a route are answered with a "404 Page not found" error page.
 
 
 
@@ -118,21 +93,21 @@ To sum it up: ``HEAD`` requests fall back to ``GET`` routes and all requests fal
 Dynamic Routes
 ------------------------------------------------------------------------------
 
-Static routes are fine, but URLs may carry information as well. Let's add a ``:name`` wildcard to our route::
+Bottle has a special syntax to add wildcards to a route and allow a single route to match a wide range of URLs. These *dynamic routes* are often used by blogs or wikis to create nice looking and meaningful URLs such as ``/blog/2010/04/21`` or ``/wiki/Page_Title``. Let's add a ``:name`` wildcard to our last example::
 
-    from bottle import route
     @route('/hello/:name')
     def hello(name):
         return "Hello %s!" % name
 
-This dynamic route matches requests to ``/hello/alice`` as well as ``/hello/bob``. In fact, the ``:name`` wildcard accepts everything but a slash. To change that, you can add a regular expression::
+This dynamic route matches ``/hello/alice`` as well as ``/hello/bob``. Each part of the URL covered by a wildcard is passed to your handler callback as a keyword argument. 
 
-    from bottle import route
-    @route('/get_object/:id#[0-9]+#')
-    def get(id):
+Normal wildcards match everything up to the next slash. You can add a regular expression to change that::
+
+    @route('/object/:id#[0-9]+#')
+    def view_object(id):
         return "Object ID: %d" % int(id)
 
-Each part of the URL covered by a wildcard is passed to your handler callback as a keyword argument. These arguments are strings, even if the wildcards are configured to only match digits. You have to explicitly cast them into other types.
+As you can see, the keyword argument contains a string even if the wildcard is configured to only match digits. You have to explicitly cast it into an integer if you need to.
 
 .. rubric:: The Dynamic Route Wildcard Syntax in Detail
 
@@ -140,131 +115,200 @@ Each part of the URL covered by a wildcard is passed to your handler callback as
    wildcard: ":" [`wildcard_name`] ["#" `regular_expression` "#"]
    wildcard_name: `letter` (`letter`|`digit`)*
 
-A dynamic route may contain any number of wildcards. Each wildcard starts with a colon followed by an optional name and an optional regular expression. The name is alpha-numeric (not starting with digits) and unique for that route. The regular expression is enclosed in ``#`` and defaults to :regexp:`[^/]+`. If the wildcard is directly followed by alphanumeric characters, you can add an empty regular expression (``##``) to mark the end of the wildcard name. Here are some examples::
+A dynamic route may contain any number of wildcards. Each wildcard starts with a colon followed by an optional name and an optional regular expression. The name is alpha-numeric (not starting with a digit) and unique for that route. The regular expression is enclosed in ``#`` and defaults to :regexp:`[^/]+`. If the wildcard is directly followed by alphanumeric characters, you can add an empty regular expression (``##``) to mark the end of the wildcard. Here are some examples::
 
    "/some/:data" # Named wildcard
    "/some/:id#[0-9]+#" # Restricted wildcard
    "/index:#(.html)?#" # Anonymous wildcard
    "/some/:/path" # Another anonymous wildcard
 
-To escape a colon, add another one::
+To escape a colon, add a backslash::
 
-   "/this/path/contains/::colons" # Escaped wildcard
+   "/this/path/contains/\\:colons" # Escaped wildcard
 
 Anonymous wildcards are *not* passed to the handler function.
 
 
 
+HTTP Request Methods
+------------------------------------------------------------------------------
 
+.. __: http_method_
 
+The HTTP protocol defines several `request methods`__ (sometimes referred to as "verbs") for different tasks. ``GET`` is the default for all routes with no other method specified. These routes will match ``GET`` requests only. To handle other methods such as ``POST``, ``PUT`` or ``DELETE``, you can add a ``method`` keyword argument to the :func:`route` decorator or use one of the four alternative decorators: :func:`get`, :func:`post`, :func:`put` or :func:`delete`.
 
+The ``POST`` method is commonly used for HTML form submission. This example shows how to handle a login form using ``POST``::
+
+    from bottle import get, post, request
+
+    @get('/login') # or @route('/login')
+    def login_form():
+        return '''<form method="POST">
+                    <input name="name"     type="text" />
+                    <input name="password" type="password" />
+                  </from>'''
+
+    @post('/login') # or @route('/login', method='POST')
+    def login_submit():
+        name     = request.POST.get('name')
+        password = request.POST.get('password')
+        if name and password and check_login(name, password):
+            return "<p>Your login was correct</p>"
+        else:
+            return "<p>Login failed</p>" + login_form()
+
+In this example the ``/login`` URL has two callbacks assigned to it: The ``login_form()`` callback is invoked on ``GET`` requests (the user clicked on a link) and returns a HTTP form. When a user submits the form, he creates a ``POST`` request which is handled by the ``login_submit()`` callback. :attr:`Request.POST` and other ways to access request related data are described in the :ref:`tutorial-request` section. 
+
+.. note::
+
+  The ``HEAD`` method is used by clients to request meta-information about a resource, but without having to download the entire document. Bottle handles these requests automatically by falling back to the corresponding ``GET`` route. You don't have to specify any ``HEAD`` routes yourself.
+
+The non-standard ``ANY`` method works as a low priority fallback in bottle. Routes that listen to ``ANY`` requests will matches requests regardless of their HTTP method but only if no other more specific route is installed. This is helpful for *proxy-routes* that redirect requests to more specific sub-applications, but you should not need to use these in normal applications.
+
+To sum it up: ``HEAD`` requests fall back to ``GET`` routes and all requests fall back to ``ANY`` routes, if there is no matching route for the original request method. It's as simple as that.
+
+Routing Static Files
+------------------------------------------------------------------------------
+
+Static files such as images or css files are not served automatically. You have to add a route and a callback to control which files get served and where to find them::
+
+  from bottle import static_file
+  @route('/static/:filename')
+  def server_static(filename):
+      return static_file(filename, root='/path/to/your/static/files')
+
+The :func:`static_file` function is a helper to serve files in a save and convenient way (see :ref:`tutorial-static-files`). This example is limited to files directly within the ``/path/to/your/static/files`` directory because the ``:filename`` wildcard won't match a filename with a slash in it. To serve files in subdirectories too, we can loosen the wildcard a bit::
+
+  @route('/static/:path#.+#')
+  def server_static(path):
+      return static_file(path, root='/path/to/your/static/files')
 
 
 .. _tutorial-request:
 
-The Request Object
+Request and Response Objects
 ==============================================================================
 
-Bottle parses the HTTP request data into a thread-save ``request`` object and provides some useful tools and methods to access this data. Most of the parsing happens on demand, so you won't see any overhead if you don't need the result. Here is a short summary:
+Bottle defines a global ``request`` object to provide access to HTTP related meta-data such as cookies, headers and POST form data. This object is updated on each client request and always contains information about the *current* request (as long as you access it from within a callback function). It is thread-local and save to use multi-threaded environments, too.
 
-* ``request[key]``: A shortcut for ``request.environ[key]``
-* ``request.environ``: WSGI environment dictionary. Use this with care.
-* ``request.app``: Currently used Bottle instance (same as ``bottle.app()``)
-* ``request.method``: HTTP request-method (GET,POST,PUT,DELETE,...).
-* ``request.query_string``: HTTP query-string (http://host/path?query_string)
-* ``request.path``: Path string that matched the current route.
-* ``request.fullpath``: Full path including the ``SCRIPT_NAME`` part.
-* ``request.url``: The full URL as requested by the client (including ``http(s)://`` and hostname)
-* ``request.input_length`` The Content-Length header (if present) as an integer.
-* ``request.header``: HTTP header dictionary.
-* ``request.GET``: The parsed content of ``request.query_string`` as a dict. Each value may be a string or a list of strings.
-* ``request.POST``: A dict containing parsed form data. Supports URL- and multipart-encoded form data. Each value may be a string, a file or a list of strings or files.
-* ``request.COOKIES``: The cookie data as a dict.
-* ``request.params``: A dict containing both, ``request.GET`` and ``request.POST`` data.
-* ``request.body``: The HTTP body of the request as a buffer object.
-* ``request.auth``: HTTP authorisation data as a named tuple. (experimental)
-* ``request.get_cookie(key[, default])``: Returns a specific cookie. If it is a :term:`secure cookie` it is decoded. (experimental)
+The global ``response`` object follows the same principle. It is also bound to the current request circle and stores the meta-data you want to send back to the browser.
+
+The full API and feature list of these objects is documented in the API section (see :class:`Request` and :class:`Response`), but the most common use cases and features are covered here.
 
 
-
-Cookies
+Accessing Request Data
 ------------------------------------------------------------------------------
 
-Bottle stores cookies sent by the client in a dictionary called ``request.COOKIES``. To create new cookies, the method ``response.set_cookie(name, value[, **params])`` is used. It accepts additional parameters as long as they are valid cookie attributes supported by `SimpleCookie`_.
+HTTP defines many ways to transmit data to the server. The :class:`Request` object provides several attributes to access raw or parsed versions of these informations. Most of the parsing and data processing happens on demand, so you won't see any overhead if you don't use the attributes.
+
+.. rubric:: HTTP Header
+
+Header are stored in :attr:`Request.header` using a :class:`HeaderDict` object. This is basically a dictionary with case-insensitive keys::
+
+  from bottle import route, request
+  @route('/is_ajax')
+  def is_ajax():
+      if request.header.get('X-Requested-With') == 'XMLHttpRequest':
+          return 'This is an AJAX request'
+      else:
+          return 'This is a normal request'
+
+.. rubric:: Cookies
+
+Cookies are stored in :attr:`Request.COOKIES` as a normal dictionary. The :meth:`Request.get_cookie` method allows access to :ref:`tutorial-secure-cookies` as described in a separate section. This example shows a simple cookie-based view counter::
+
+  from bottle import route, request, response
+  @route('/counter')
+  def counter():
+      count = int( request.COOKIES.get('counter', '0') ) + 1
+      count += 1
+      response.set_cookie('counter', str(count))
+      return 'You visited this page %d times' % count
+
+
+.. rubric:: Query Strings
+
+The query string (as in ``/forum?id=1&page=5``) is commonly used to transmit a small number of key/value pairs to the server. You can use the :attr:`Request.GET` attribute to access these values and the :attr:`Request.query_string` attribute to get the whole string.
+
+The :attr:`Request.GET` attribute uses a :class:`MultiDict` to store the query values. Multiple values per key are saved, but the standard dict access methods will only return a single value. Use the :meth:`MultiDict.getall` method do receive a (possibly empty) list of all values for a specific key.
 
 ::
 
-    from bottle import response
-    response.set_cookie('key','value', path='/', domain='example.com', secure=True, expires=+500, ...)
+  from bottle import route, request, response
+  @route('/forum')
+  def display_forum():
+      forum_id = request.GET.get('id')
+      page = request.GET.get('page', 1)
+      return 'Forum ID: %d (page %d)' % (forum_id, page)
 
-To set the ``max-age`` attribute use the ``max_age`` name.
+.. rubric:: POST Form Data and File Uploads
 
-TODO: It is possible to store python objects and lists in cookies. This produces signed cookies, which are pickled and unpickled automatically. 
+The request body of POST requests may contain form data encoded in various formats. The :attr:`Request.body` attribute holds a file object with the raw body data, but you usually don't need to parse it yourself. Use the :attr:`Request.forms` attribute (a :class:`MultiDict`) to access normal POST form fields. File uploads are stored separately in :attr:`Request.files` as :class:`cgi.FieldStorage` objects. The :attr:`Request.POST` attribute combines both attributes in a single :class:`MultiDict`.
 
+As with the :attr:`Request.GET` attribute, multiple values per key are possible. Use the :meth:`MultiDict.getall` method do get all values for a specific key.
 
+Here is an example for a simple file upload form:
 
-GET and POST values
-------------------------------------------------------------------------------
+.. code-block:: html
 
-Query strings and/or POST form submissions are parsed into dictionaries and made
-available as ``request.GET`` and ``request.POST``. Multiple values per
-key are possible, so these dictionaries actually are instances of :class:`MultiDict`
-which returns the newest value by default. You can use ``.getall(key)`` to get a
-list of all available values for that key.
-
-
-::
-
-    from bottle import route, request
-    @route('/search', method='POST')
-    def do_search():
-        if 'query' in request.POST:
-            return 'You searched for %s.' % request.POST['query'].strip()
-        else:
-            return "You didn't supply a search query."
-
-
-
-
-File Uploads
-------------------------------------------------------------------------------
-
-Bottle handles file uploads similar to normal POST form data. Instead of strings, you will get file-like objects. 
+    <form action="/upload" method="post" enctype="multipart/form-data">
+      <input type="text" name="name" />
+      <input type="file" name="data" />
+    </form>
 
 ::
 
     from bottle import route, request
     @route('/upload', method='POST')
     def do_upload():
-        datafile = request.POST.get('datafile')
-        return datafile.read()
+        name = request.forms.get('name')
+        data = request.files.get('data')
+        if name and data:
+            raw = data.read() # This is dangerous for big files
+            filename = data.filename
+            return "Hello %s! Your uploaded %s (%d bytes)." % (name, filename, len(raw))
+        return "You missed a field."
 
-Here is an example HTML Form for file uploads:
+.. rubric:: WSGI environment
 
-.. code-block:: html
+The :class:`Request` object stores the WSGI environment dictionary in :attr:`Request.environ` and allows dict-like access to its values. See the `WSGI specification`_ for details. 
 
-    <form action="/upload" method="post" enctype="multipart/form-data">
-      <input name="datafile" type="file" />
-    </form>
+::
+
+  @route('/my_ip')
+  def show_ip():
+      ip = request.environ.get('REMOTE_ADDR')
+      # or ip = request.get('REMOTE_ADDR')
+      # or ip = request['REMOTE_ADDR']
+      return "Your IP is: %s" % ip
 
 
 
 
+
+The Response Object
+-------------------------------------------------------------------------------
+
+TODO
+
+
+.. _tutorial-secure-cookies:
+
+
+Secure Cookies
+-------------------------------------------------------------------------------
+
+TODO
 
 .. _tutorial-output:
 
 Generating content
 ==============================================================================
 
-The `WSGI specification`_ expects an iterable list of byte strings to be returned by your application and can't handle unicode, dictionaries or exceptions. Bottle automatically tries to convert anything to a WSGI supported type, so you don't have to. The following examples will work with Bottle, but won't work with pure WSGI.
+The `WSGI specification`_ expects an iterable list of byte strings to be returned by your application and can't handle unicode, dictionaries or exceptions. File objects will be handled as iterables in *pure* WSGI, with no conditional caching or ``Content-Length`` calculation. Bottle automatically tries to convert anything to a WSGI supported type, so you don't have to. The following examples will work with Bottle, but won't work with pure WSGI.
 
 
 
-
-The Response Object
-------------------------------------------------------------------------------
-
-TODO
 
 Strings and Unicode
 ------------------------------------------------------------------------------
@@ -325,11 +369,12 @@ Even dictionaries are allowed. They are converted to json_ and returned with the
         return {'status':'online', 'servertime':time.time()}
 
 
+.. _tutorial-static-files:
 
 Static Files
 --------------------------------------------------------------------------------
 
-You can directly return file objects, but ``static_file()`` is the recommended way to serve static files. It automatically guesses a mime-type, adds a ``Last-Modified`` header, restricts paths to a ``root`` directory for security reasons and generates appropriate error responses (401 on permission errors, 404 on missing files). It even supports the ``If-Modified-Since`` header and eventually generates a ``304 Not modified`` response. You can pass a custom mimetype to disable mimetype guessing.
+You can directly return file objects, but :func:`static_file` is the recommended way to serve static files. It automatically guesses a mime-type, adds a ``Last-Modified`` header, restricts paths to a ``root`` directory for security reasons and generates appropriate error responses (401 on permission errors, 404 on missing files). It even supports the ``If-Modified-Since`` header and eventually generates a ``304 Not modified`` response. You can pass a custom mimetype to disable mimetype guessing.
 
 ::
 

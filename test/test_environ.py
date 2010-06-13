@@ -25,18 +25,18 @@ class TestEnviron(unittest.TestCase):
         """ Environ: Request.path_shift() """
         def test_shift(s, p, c):
             request.bind({'SCRIPT_NAME': s, 'PATH_INFO': p})
-            m = request.path_shift(c)
-            return [request['SCRIPT_NAME'], request.path, m]
-        self.assertEqual(['/a/b', '/c/d',''], test_shift('/a/b', '/c/d', 0))
-        self.assertEqual(['/a/b', '/c/d/',''], test_shift('/a/b', '/c/d/', 0))
-        self.assertEqual(['/a/b/c', '/d','c'], test_shift('/a/b', '/c/d', 1))
-        self.assertEqual(['/a', '/b/c/d','b'], test_shift('/a/b', '/c/d', -1))
-        self.assertEqual(['/a/b/c', '/d/','c'], test_shift('/a/b', '/c/d/', 1))
-        self.assertEqual(['/a', '/b/c/d/','b'], test_shift('/a/b', '/c/d/', -1))
-        self.assertEqual(['/a/b/c', '/d/','c'], test_shift('/a/b/', '/c/d/', 1))
-        self.assertEqual(['/a', '/b/c/d/','b'], test_shift('/a/b/', '/c/d/', -1))
-        self.assertEqual(['/a/b/c/d', '/','a/b/c/d'], test_shift('/', '/a/b/c/d', 4))
-        self.assertEqual(['/', '/a/b/c/d/','a/b/c/d'], test_shift('/a/b/c/d', '/', -4))
+            request.path_shift(c)
+            return [request['SCRIPT_NAME'], request.path]
+        self.assertEqual(['/a/b', '/c/d'], test_shift('/a/b', '/c/d', 0))
+        self.assertEqual(['/a/b', '/c/d/'], test_shift('/a/b', '/c/d/', 0))
+        self.assertEqual(['/a/b/c', '/d'], test_shift('/a/b', '/c/d', 1))
+        self.assertEqual(['/a', '/b/c/d'], test_shift('/a/b', '/c/d', -1))
+        self.assertEqual(['/a/b/c', '/d/'], test_shift('/a/b', '/c/d/', 1))
+        self.assertEqual(['/a', '/b/c/d/'], test_shift('/a/b', '/c/d/', -1))
+        self.assertEqual(['/a/b/c', '/d/'], test_shift('/a/b/', '/c/d/', 1))
+        self.assertEqual(['/a', '/b/c/d/'], test_shift('/a/b/', '/c/d/', -1))
+        self.assertEqual(['/a/b/c/d', '/'], test_shift('/', '/a/b/c/d', 4))
+        self.assertEqual(['/', '/a/b/c/d/'], test_shift('/a/b/c/d', '/', -4))
         self.assertRaises(AssertionError, test_shift, '/a/b', '/c/d', 3)
         self.assertRaises(AssertionError, test_shift, '/a/b', '/c/d', -3)
         
@@ -58,9 +58,15 @@ class TestEnviron(unittest.TestCase):
         e = {}
         wsgiref.util.setup_testing_defaults(e)
         request.bind(e, None)
+        self.assertEqual(list(request), e.keys())
+        self.assertEqual(len(request), len(e))
         for k, v in e.iteritems():
             self.assertTrue(k in request)
-            self.assertTrue(request[k] == v)
+            self.assertEqual(request[k], v)
+            request[k] = 'test'
+            self.assertEqual(request[k], 'test')
+        del request['PATH_INFO']
+        self.assertTrue('PATH_INFO' not in request)
 
     def test_header_access(self):
         """ Environ: Request objects decode headers """
@@ -124,6 +130,20 @@ class TestEnviron(unittest.TestCase):
         e['REQUEST_METHOD'] = "POST"
         request.bind(e, None)
         self.assertEqual('', request.POST['foobar'])
+
+    def test_body_noclose(self):
+        """ Test that the body file handler is not closed after request.POST """
+        sq = u'a=a&a=1&b=b&c=&d'.encode('utf8')
+        e = {}
+        wsgiref.util.setup_testing_defaults(e)
+        e['wsgi.input'].write(sq)
+        e['wsgi.input'].seek(0)
+        e['CONTENT_LENGTH'] = str(len(sq))
+        e['REQUEST_METHOD'] = "POST"
+        request.bind(e, None)
+        self.assertEqual(sq, request.body.read())
+        request.POST # This caused a body.close() with Python 3.x
+        self.assertEqual(sq, request.body.read())
 
     def test_params(self):
         """ Environ: GET and POST are combined in request.param """ 
@@ -195,7 +215,7 @@ class TestMultipart(unittest.TestCase):
     def test_multipart(self):
         """ Environ: POST (multipart files and multible values per key) """
         fields = [('field1','value1'), ('field2','value2'), ('field2','value3')]
-        files = [('file1','filename1.txt','content1'), ('file2','filename2.py',u'äöü')]
+        files = [('file1','filename1.txt','content1'), ('file2','filename2.py',u'ä\nö\rü')]
         e = tools.multipart_environ(fields=fields, files=files)
         request.bind(e, None)
         # File content
@@ -208,7 +228,7 @@ class TestMultipart(unittest.TestCase):
         x = request.POST['file2'].file.read()
         if sys.version_info >= (3,0,0):
             x = x.encode('ISO-8859-1')
-        self.assertEqual(u'äöü'.encode('utf8'), x)
+        self.assertEqual(u'ä\nö\rü'.encode('utf8'), x)
         # No file
         self.assertTrue('file3' not in request.POST)
         # Field (single)
