@@ -375,7 +375,7 @@ class Bottle(object):
                 __import__('bottle_%s' % plugin)
             if plugin not in plugin_names:
                 raise PluginError("Unable to load plugin %s." % name)
-            plugin = plugin_names[name]
+            plugin = plugin_names[plugin]
         if isinstance(plugin, type) and issubclass(plugin, BasePlugin):
             plugin = plugin(self, *args, **config)
         if not isinstance(plugin, BasePlugin):
