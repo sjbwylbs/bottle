@@ -722,8 +722,8 @@ class Request(threading.local, DictMixin):
     def path_shift(self, shift=1):
         ''' Shift path fragments from PATH_INFO to SCRIPT_NAME and vice versa.
 
-          :param shift: The number of path fragments to shift. May be negative to
-            change the shift direction. (default: 1)
+           :param shift: The number of path fragments to shift. May be negative
+                         to change the shift direction. (default: 1)
         '''
         script_name = self.environ.get('SCRIPT_NAME','/')
         self['SCRIPT_NAME'], self.path = path_shift(script_name, self.path, shift)
@@ -749,12 +749,12 @@ class Request(threading.local, DictMixin):
 
     @property
     def query_string(self):
-        """ The content of the QUERY_STRING environment variable. """
+        """ The part of the URL following the '?'. """
         return self.environ.get('QUERY_STRING', '')
 
     @property
     def fullpath(self):
-        """ Request path including SCRIPT_NAME (if present) """
+        """ Request path including SCRIPT_NAME (if present). """
         return self.environ.get('SCRIPT_NAME', '').rstrip('/') + self.path
 
     @property
@@ -765,11 +765,12 @@ class Request(threading.local, DictMixin):
             and includes scheme, host, port, scriptname, path and query string. 
         """
         scheme = self.environ.get('wsgi.url_scheme', 'http')
-        host   = self.environ.get('HTTP_X_FORWARDED_HOST', self.environ.get('HTTP_HOST', None))
+        host   = self.environ.get('HTTP_X_FORWARDED_HOST')
+        host   = host or self.environ.get('HTTP_HOST', None)
         if not host:
             host = self.environ.get('SERVER_NAME')
             port = self.environ.get('SERVER_PORT', '80')
-            if scheme + port not in ('https443', 'http80'):
+            if (scheme, port) not in (('https','443'), ('http','80')):
                 host += ':' + port
         parts = (scheme, host, urlquote(self.fullpath), self.query_string, '')
         return urlunsplit(parts)
@@ -777,7 +778,7 @@ class Request(threading.local, DictMixin):
     @property
     def content_length(self):
         """ Content-Length header as an integer, -1 if not specified """
-        return int(self.environ.get('CONTENT_LENGTH','') or -1)
+        return int(self.environ.get('CONTENT_LENGTH', '') or -1)
 
     @property
     def header(self):
@@ -786,17 +787,22 @@ class Request(threading.local, DictMixin):
 
     @property
     def headers(self):
-        ''' :class:`WSGIHeaderDict` filled with request headers. '''
+        ''' A dict-like object filled with request headers.
+        
+            This dictionary uses case-insensitive keys and native strings as
+            keys and values. See :class:`WSGIHeaderDict` for details.
+        '''
         if 'bottle.headers' not in self.environ:
             self.environ['bottle.headers'] = WSGIHeaderDict(self.environ)
         return self.environ['bottle.headers']
 
     @property
     def GET(self):
-        """ The QUERY_STRING parsed into a MultiDict.
+        """ The QUERY_STRING parsed into an instance of :class:`MultiDict`.
 
-            Keys and values are strings. Multiple values per key are possible.
-            See MultiDict for details.
+            If you expect more than one value for a key, use ``.getall(key)`` on
+            this dictionary to get a list of all values. Otherwise, only the
+            first value is returned.
         """
         if 'bottle.get' not in self.environ:
             data = parse_qs(self.query_string, keep_blank_values=True)
@@ -808,13 +814,13 @@ class Request(threading.local, DictMixin):
 
     @property
     def POST(self):
-        """ Property: The HTTP POST body parsed into a MultiDict.
+        """ The combined values from :attr:`forms` and :attr:`files`. Values are
+            either strings (form values) or instances of
+            :class:`cgi.FieldStorage` (file uploads).
 
-            This supports url-encoded and multipart POST requests. Multipart
-            is commonly used for file uploads and may result in some of the
-            values being cgi.FieldStorage objects instead of strings.
-
-            Multiple values per key are possible. See MultiDict for details.
+            If you expect more than one value for a key, use ``.getall(key)`` on
+            this dictionary to get a list of all values. Otherwise, only the
+            first value is returned.
         """
         if 'bottle.post' not in self.environ:
             self.environ['bottle.post'] = MultiDict()
@@ -841,19 +847,38 @@ class Request(threading.local, DictMixin):
 
     @property
     def forms(self):
-        """ Property: HTTP POST form data parsed into a MultiDict. """
+        """ POST form values parsed into an instance of :class:`MultiDict`.
+
+            This property contains form values parsed from an `url-encoded`
+            or `multipart/form-data` encoded POST request bidy. The values are
+            native strings.
+
+            If you expect more than one value for a key, use ``.getall(key)`` on
+            this dictionary to get a list of all values. Otherwise, only the
+            first value is returned.
+        """
         if 'bottle.forms' not in self.environ: self.POST
         return self.environ['bottle.forms']
 
     @property
     def files(self):
-        """ Property: HTTP POST file uploads parsed into a MultiDict. """
+        """ File uploads parsed into an instance of :class:`MultiDict`.
+
+            This property contains file uploads parsed from an
+            `multipart/form-data` encoded POST request body. The values are
+            instances of :class:`cgi.FieldStorage`.
+
+            If you expect more than one value for a key, use ``.getall(key)`` on
+            this dictionary to get a list of all values. Otherwise, only the
+            first value is returned.
+        """
         if 'bottle.files' not in self.environ: self.POST
         return self.environ['bottle.files']
         
     @property
     def params(self):
-        """ A combined MultiDict with POST and GET parameters. """
+        """ A combined :class:`MultiDict` with values from :attr:`forms` and
+            :attr:`GET`. File-uploads are not included. """
         if 'bottle.params' not in self.environ:
             self.environ['bottle.params'] = MultiDict(self.GET)
             self.environ['bottle.params'].update(dict(self.forms))
@@ -861,8 +886,8 @@ class Request(threading.local, DictMixin):
 
     @property
     def body(self):
-        """ The HTTP request body as a seekable buffer object.
-        
+        """ The HTTP request body as a seekable file-like object.
+
             This property returns a copy of the `wsgi.input` stream and should
             be used instead of `environ['wsgi.input']`.
          """
@@ -884,7 +909,7 @@ class Request(threading.local, DictMixin):
     @property
     def auth(self): #TODO: Tests and docs. Add support for digest. namedtuple?
         """ HTTP authorization data as a (user, passwd) tuple. (experimental)
-        
+
             This implementation currently only supports basic auth and returns
             None on errors.
         """
@@ -892,10 +917,8 @@ class Request(threading.local, DictMixin):
 
     @property
     def COOKIES(self):
-        """ Cookie information parsed into a dictionary.
-        
-            Secure cookies are NOT decoded automatically. See
-            Request.get_cookie() for details.
+        """ Cookies parsed into a dictionary. Secure cookies are NOT decoded
+            automatically. See :meth:`get_cookie` for details.
         """
         if 'bottle.cookies' not in self.environ:
             raw_dict = SimpleCookie(self.headers.get('Cookie',''))
@@ -944,7 +967,7 @@ class Response(threading.local):
         return self.headers
 
     def copy(self):
-        ''' Returns a copy of self '''
+        ''' Returns a copy of self. '''
         copy = Response()
         copy.status = self.status
         copy.headers = self.headers.copy()
@@ -980,7 +1003,7 @@ class Response(threading.local):
 
     @property
     def COOKIES(self):
-        """ A dict-like SimpleCookie instance. Use Response.set_cookie() instead. """
+        """ A dict-like SimpleCookie instance. Use :meth:`set_cookie` instead. """
         if not self._COOKIES:
             self._COOKIES = SimpleCookie()
         return self._COOKIES
@@ -989,14 +1012,14 @@ class Response(threading.local):
         ''' Add a cookie. If the `secret` parameter is set, this creates a
             `Secure Cookie` (described below).
 
-            |param key| the name of the cookie.
-            |param value| the value of the cookie.
-            |param secret| required for secure cookies. (default: None)
-            |param max_age| maximum age in seconds. (default: None)
-            |param expires| a datetime object or UNIX timestamp. (defaut: None)
-            |param domain| the domain that is allowed to read the cookie.
+            :param key: the name of the cookie.
+            :param value: the value of the cookie.
+            :param secret: required for secure cookies. (default: None)
+            :param max_age: maximum age in seconds. (default: None)
+            :param expires: a datetime object or UNIX timestamp. (defaut: None)
+            :param domain: the domain that is allowed to read the cookie.
               (default: current domain)
-            |param path| limits the cookie to a given path (default: /)
+            :param path: limits the cookie to a given path (default: /)
 
             If neither `expires` nor `max_age` are set (default), the cookie
             lasts only as long as the browser is not closed.
@@ -1014,15 +1037,14 @@ class Response(threading.local):
             value = touni(cookie_encode((key, value), secret))
         elif not isinstance(value, basestring):
             raise TypeError('Secret missing for non-string Cookie.')
-            
+
         self.COOKIES[key] = value
         for k, v in kargs.iteritems():
             self.COOKIES[key][k.replace('_', '-')] = v
 
     def delete_cookie(self, key, **kwargs):
         ''' Delete a cookie. Be sure to use the same `domain` and `path`
-            parameters as used to create the cookie.
-        '''
+            parameters as used to create the cookie. '''
         kwargs['max_age'] = -1
         kwargs['expires'] = 0
         self.set_cookie(key, **kwargs)
@@ -1488,8 +1510,8 @@ def default():
 
 class ServerAdapter(object):
     quiet = False
-    def __init__(self, host='127.0.0.1', port=8080, **kargs):
-        self.options = kargs
+    def __init__(self, host='127.0.0.1', port=8080, **config):
+        self.options = config
         self.host = host
         self.port = int(port)
 
@@ -1511,7 +1533,9 @@ class CGIServer(ServerAdapter):
 class FlupFCGIServer(ServerAdapter):
     def run(self, handler): # pragma: no cover
         import flup.server.fcgi
-        flup.server.fcgi.WSGIServer(handler, bindAddress=(self.host, self.port)).run()
+        kwargs = {'bindAddress':(self.host, self.port)}
+        kwargs.update(self.options) # allow to override bindAddress and others
+        flup.server.fcgi.WSGIServer(handler, **kwargs).run()
 
 
 class WSGIRefServer(ServerAdapter):
@@ -1548,10 +1572,7 @@ class MeinheldServer(ServerAdapter):
         server.run(handler)
 
 class FapwsServer(ServerAdapter):
-    """
-    Extremely fast webserver using libev.
-    See http://william-os4y.livejournal.com/
-    """
+    """ Extremely fast webserver using libev. See http://www.fapws.org/ """
     def run(self, handler): # pragma: no cover
         import fapws._evwsgi as evwsgi
         from fapws import base, config
@@ -1573,8 +1594,7 @@ class FapwsServer(ServerAdapter):
 
 
 class TornadoServer(ServerAdapter):
-    """ Untested. As described here:
-        http://github.com/facebook/tornado/blob/master/tornado/wsgi.py#L187 """
+    """ The super hyped asynchronous server by facebook. Untested. """
     def run(self, handler): # pragma: no cover
         import tornado.wsgi
         import tornado.httpserver
@@ -1586,7 +1606,7 @@ class TornadoServer(ServerAdapter):
 
 
 class AppEngineServer(ServerAdapter):
-    """ Untested. """
+    """ Adapter for Google App Engine. """
     quiet = True
     def run(self, handler):
         from google.appengine.ext.webapp import util
@@ -1689,21 +1709,43 @@ server_names = {
 # Application Control ##########################################################
 ###############################################################################
 
+
+def _load(target, **kwargs):
+    """ Fetch something from a module. The exact behaviour depends on the the
+        target string:
+
+        If the target is a valid python import path (e.g. `package.module`), 
+        the rightmost part is returned as a module object.
+        If the target contains a colon (e.g. `package.module:var`) the module
+        variable specified after the colon is returned.
+        If the part after the colon contains any non-alphanumeric characters
+        (e.g. `package.module:function(argument)`) the result of the expression
+        is returned.
+    """
+    module, target = target.split(":", 1) if ':' in target else (target, None)
+    if module not in sys.modules:
+        __import__(module)
+    if not target:
+        return sys.modules[module]
+    if target.isalnum():
+        return getattr(sys.modules[module], target)
+    package_name = module.split('.')[0]
+    kwargs[package_name] = sys.modules[package_name]
+    return eval('%s.%s' % (module, target), kwargs)
+
 def load_app(target):
-    """ Load a bottle application based on a target string and return the app
-        object.
-        
-        The target should be a valid python import path
-        (e.g. mypackage.mymodule). The default application is returned.
-        If the target contains a colon (e.g. mypackage.mymodule:myapp) the
+    """ Load a bottle application based on a target string and return the
+        application object.
+
+        If the target is an import path (e.g. package.module) the module is
+        returned and the default application is returned.
+        If the target contains a colon (e.g. package.module:app) the
         module variable specified after the colon is returned instead.
     """
-    path, name = target.split(":", 1) if ':' in target else (target, None)
-    rv = None if name else app.push()
-    __import__(path)
-    module = sys.modules[path]
-    if rv and rv in app: app.remove(rv)
-    return rv if rv else getattr(module, target)
+    tmp = app.push()
+    rv = _load(target)
+    app.remove(tmp)
+    return rv if isinstance(rv, Bottle) else tmp
 
 
 def run(app=None, server='wsgiref', host='127.0.0.1', port=8080,
@@ -1987,6 +2029,32 @@ class Jinja2Template(BaseTemplate):
             with open(fname, "rb") as f:
                 return f.read().decode(self.encoding)
 
+class SimpleTALTemplate(BaseTemplate):
+    ''' Untested! '''
+    def prepare(self, **options):
+        from simpletal import simpleTAL
+        # TODO: add option to load METAL files during render
+        if self.source:
+            self.tpl = simpleTAL.compileHTMLTemplate(self.source)
+        else:
+            with open(self.filename, 'rb') as fp:
+                self.tpl = simpleTAL.compileHTMLTemplate(tonat(fp.read()))
+
+    def render(self, *args, **kwargs):
+        from simpletal import simpleTALES
+        from StringIO import StringIO
+        for dictarg in args: kwargs.update(dictarg)
+        # TODO: maybe reuse a context instead of always creating one
+        context = simpleTALES.Context()
+        for k,v in self.defaults.items():
+            context.addGlobal(k, v)
+        for k,v in kwargs.items():
+            context.addGlobal(k, v)
+        output = StringIO()
+        self.tpl.expand(context, output)
+        return output.getvalue()
+
+
 
 class SimpleTemplate(BaseTemplate):
     blocks = ('if','elif','else','try','except','finally','for','while','with','def','class')
@@ -2159,6 +2227,7 @@ def template(*args, **kwargs):
 mako_template = functools.partial(template, template_adapter=MakoTemplate)
 cheetah_template = functools.partial(template, template_adapter=CheetahTemplate)
 jinja2_template = functools.partial(template, template_adapter=Jinja2Template)
+simpletal_template = functools.partial(template, template_adapter=SimpleTALTemplate)
 
 def view(tpl_name, **defaults):
     ''' Decorator: renders a template for a handler.
@@ -2185,7 +2254,7 @@ def view(tpl_name, **defaults):
 mako_view = functools.partial(view, template_adapter=MakoTemplate)
 cheetah_view = functools.partial(view, template_adapter=CheetahTemplate)
 jinja2_view = functools.partial(view, template_adapter=Jinja2Template)
-
+simpletal_view = functools.partial(view, template_adapter=SimpleTALTemplate)
 
 
 
