@@ -390,8 +390,6 @@ class Bottle(object):
         plugin = plugin_names.get(plugin) or plugin
         if plugin in self.plugins: # remove instance
             self.plugins.remove(plugin)
-        elif isinstance(plugin, basestring): # remove all with this name
-            self.plugins = [p for p in self.plugins if p.plugin_name != plugin]
         else: # remove all with same type
             self.plugins = [p for p in self.plugins if not type(p) == plugin]
 
@@ -1055,11 +1053,13 @@ class PluginError(BottleException): pass
 class PluginMetaclass(type):
     def __init__(cls, name, bases, dct):
         super(PluginMetaclass, cls).__init__(name, bases, dct)
-        name = dct.get('plugin_name')
-        if name in plugin_names and plugin_names[name] != cls:
-            raise PluginError('Plugin name not unique: %s' % name)
-        elif name:
-            plugin_names[name] = cls
+        pname = dct.get('plugin_name')
+        if pname in plugin_names and plugin_names[pname] != cls:
+            raise PluginError('Plugin name not unique: %s' % pname)
+        elif not name:
+            raise PluginError('Plugin name not defined for %s.' % name)
+        else:
+            plugin_names[pname] = cls
 
 
 class BasePlugin(object):
