@@ -6,66 +6,64 @@ __version__ = '0.1'
 __licence__ = 'MIT'
 
 import bottle
-import struct, time, zlib
+from struct import pack
+from zlib import crc32
+import zlib
+from time import time
+from functools import partial
 
 class OtfCompressPlugin(bottle.BasePlugin):
     plugin_name = "otfcompress"
 
     def wrap(self, callback):
         def wrapper(*args, **kwargs):
-            rv = ""
-            try:
-                rv = callback(*args, **kwargs)
-                if bottle.request.headers.get("Accept-Encoding"):
-                    # Split and cleanup accept-encoding header
-                    # 'Accept-Encoding: deflate, gzip' => ['deflate', 'gzip']
-                    spae = map(lambda x: x.strip(), bottle.request.headers.get("Accept-Encoding").split(','))
-                    enc = ""
-                    for e in spae:
-                        # Might have gzip or x-gzip
-                        if "gzip" in e:
-                            enc = e
-                    if enc:
-                        bottle.response.headers['Content-Encoding'] = enc
-                        if isinstance(rv ,bottle.HTTPResponse):
-                            # Apply rv headers
-                            rv.apply()
-                            # but delete content-length header
-                            # (not determinable without mapping all data in ram)
-                            del(bottle.response.headers['Content-Length'])
-                            return iter_compress(rv.output)
-                        else:
-                            return iter_compress(rv)
-                    else:
-                        return rv
-                else:
-                    return rv
-            except Exception, e:
-                #print str(e)
-                return rv
+            rv = callback(*args, **kwargs)
+            # Get and parse accept header or return uncompressed
+            enc = bottle.request.headers.get('Accept-Encoding', '')
+            enc = [algo.strip() for algo in enc.split(',')]
+            if 'gzip' in enc: enc = 'gzip'
+            elif 'x-gzip' in enc: enc = 'x-gzip'
+            else: return rv
+            bottle.response.headers['Content-Encoding'] = enc
+            while isinstance(rv, bottle.HTTPResponse):
+                rv.apply(bottle.response)
+                # Delete content-length header (changes after conpression)
+                if 'Content-Length' in bottle.response.headers:
+                    del bottle.response.headers['Content-Length']
+                rv = rv.output
+            if isinstance(rv, (tuple, list)): rv = ''.join(rv)
+            if isinstance(rv, unicode): rv = ev.encode(bottle.response.charset)
+            if isinstance(rv, str): rv = [rv]
+            return iter_compress(rv)
         return wrapper
 
-    
-def write32u(value):
-    return struct.pack("<L", value)
+write32u = partial(pack, "<L")
 
-# From Gzip
-def iter_compress(it, compresslevel=9):
-    crc = zlib.crc32("") & 0xffffffffL
-    compress = zlib.compressobj(compresslevel,
-                                zlib.DEFLATED,
-                                -zlib.MAX_WBITS,
-                                zlib.DEF_MEM_LEVEL,
-                                0)
+
+# From Gzip. This adds gzip specific headers to the deflate data stream
+def iter_compress(iterator):
+    crc = crc32("") & 0xffffffffL
+    compress = zlib.compressobj(9, zlib.DEFLATED, -zlib.MAX_WBITS,
+                                   zlib.DEF_MEM_LEVEL, 0)
     size = 0
     # header + method + flag (0) + time + misc headers
-    yield '\037\213\010\000'+write32u(long(time.time()))+'\002\377'
-    for e in it:
-        size += len(e)
-        crc = zlib.crc32(e, crc) & 0xffffffffL
-        yield compress.compress(e)
-
+    yield '\037\213\010\000'+write32u(long(time()))+'\002\377'
+    for part in iterator:
+        size += len(part)
+        crc = crc32(part, crc) & 0xffffffffL
+        yield compress.compress(part)
     # Close
     yield compress.flush()
     yield write32u(crc) + write32u(size & 0xffffffffL)
-    
+
+def test():
+    app = bottle.Bottle()
+    bottle.debug(True)
+    app.install("otfcompress")
+    @app.get('/')
+    def test():
+        return 'Hello World'
+    return app
+
+if __name__ == '__main__':
+    bottle.run(test())
