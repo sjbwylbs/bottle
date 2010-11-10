@@ -385,13 +385,18 @@ class Bottle(object):
 
     def uninstall(self, plugin):
         ''' Uninstall a specific plugin or all instances of a plugin type.
-            :param plugin: Either a plugin instance, name or class. '''
+            :param plugin: Plugin instance, name or class to remove.
+            :return: List of removed plugins. '''
         self.reset_plugins()
-        plugin = plugin_names.get(plugin) or plugin
-        if plugin in self.plugins: # remove instance
-            self.plugins.remove(plugin)
-        else: # remove all with same type
-            self.plugins = [p for p in self.plugins if not type(p) == plugin]
+        installed = self.plugins
+        plugin = plugin_names.get(plugin) or plugin # Lookup plugin name
+        if plugin in installed: # Remove a specific instance
+            installed.remove(plugin)
+            plugin.close()
+            return [plugin]
+        if plugin is True: # Remove ALL plugins
+            return [self.uninstall(p)[0] for p in installed]
+        return [self.uninstall(p)[0] for p in installed if type(p) == plugin]
 
     def reset_plugins(self):
         ''' Force Bottle to reapply all plugins. '''
@@ -1073,21 +1078,24 @@ plugin_names = {}
 class PluginError(BottleException): pass
 
 class PluginMetaclass(type):
-    def __init__(cls, name, bases, dct):
-        super(PluginMetaclass, cls).__init__(name, bases, dct)
-        pname = dct.get('plugin_name')
+    ''' This metaclass prevents plugins from overriding __init__() or __call__()
+        and updates bottle.plugin_names automatically. '''
+    def __new__(cls, name, bases, dct):
+        for final in ('__init__', '__call__'):
+            if name != 'BasePlugin' and final in dct:
+                raise PluginError('Plugins must not override %s' % final)
+        if not name.endswith('Plugin') or name == 'Plugin':
+            raise PluginError('Plugin class names must end in "Plugin"')
+        pname = dct.setdefault('plugin_name', name[:-6].lower())
         if pname in plugin_names and plugin_names[pname] != cls:
-            raise PluginError('Plugin name not unique: %s' % pname)
-        elif not name:
-            raise PluginError('Plugin name not defined for %s.' % name)
-        else:
-            plugin_names[pname] = cls
+            raise PluginError('Plugin name is not unique: %s' % pname)
+        pclass = type.__new__(cls, name, bases, dct)
+        plugin_names[pname] = pclass
+        return pclass
 
 
 class BasePlugin(object):
     __metaclass__ = PluginMetaclass
-    plugin_name = None
-    ''' Do not forget to name your subclass. '''
 
     def __init__(self, app=None, *args, **kwargs):
         self.setup(app or default_app(), *args, **kwargs)
@@ -1099,18 +1107,30 @@ class BasePlugin(object):
         return functools.wraps(func)(wrapped)
 
     def setup(self, app, **config):
-        ''' This method is called by __init__(). Override to accept init
-        parameters. '''
+        ''' This method is called once during plugin initialisation.
+            Override to prepare or configure a plugin.
+
+            :param app: Associated application object (:class:`Bottle`).
+            Additional parameters may be used to accept configuration parameters.
+        '''
         return
 
-    def wrap(self, func):
-        ''' This method is called by __call__(). Override to apply decorators.
+    def wrap(self, callback):
+        ''' This method is called once for each route callback and the return
+            value is used as a replacement for the original callback. In other
+            words: Each route callback is decorated with this method. Override
+            to wrap or replace route callbacks.
         '''
-        return func
+        return callback
+
+    def close(self):
+        ''' This method is called once during server shutdown or when the
+            plugin is removed from an application. Override to perform cleanup
+            tasks. '''
+        pass
 
 
 class HooksPlugin(BasePlugin):
-    plugin_name = 'hooks'
 
     def setup(self, app, before=None, after=None):
         self.app = app
@@ -1141,7 +1161,6 @@ class HooksPlugin(BasePlugin):
 
 
 class JsonPlugin(BasePlugin):
-    plugin_name = 'json'
 
     def setup(self, app, json_func=json_dumps):
         self.app = app
