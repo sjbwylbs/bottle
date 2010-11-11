@@ -52,7 +52,7 @@ To install a plugin, just call :func:`install` with a plugin name or class as fi
 The first way (install by name) is a shortcut and works for all plugins that follow the :doc:`/plugins/devguide`. Bottle locates and imports the plugin module or package automatically.
 
 .. note::
-    The module-level :func:`install` function installs plugins to the default application. To install a plugin to a specific application, use the :meth:`Bottle.install` method on the application object.
+    The module-level :func:`install` function installs plugins to the default application. To install a plugin to a specific application, use the :meth:`Bottle.install` method on the application object instead.
 
 The plugin is initialized and configured immediately, but not applied to the route callbacks yet. This is delayed to make sure no routes are missed. You can install plugins first and add routes later, if you want to. The order of installed plugins is significant, though. If a plugin requires a database connection, you need to install the database plugin first.
 

@@ -1,17 +1,30 @@
+.. module:: bottle
+
 ========================
 Plugin Development Guide
 ========================
 
-Browse the list of :doc:`available plugins </plugins/index>` and see if someone has solved your problem already. If not, then read ahead. This guide explains the `Common Plugin Interface`.
+Browse the list of :doc:`available plugins </plugins/index>` and see if someone has solved your problem already. If not, then read ahead. This guide explains the `Common Plugin Interface` and how to write your own plugins.
 
-Writing Plugins
-==================
 
-The plugin API follows the concept of configurable decorators that are applied to all or a subset of all routes of an application. Decorators are a very flexible and pythonic way to reduce repetitive work. A common base class (:class:`BasePlugin`) is used to simplify plugin development and ensure portability.
+How Plugins Work
+================
 
-.. rubric:: Short Introduction to Decorators
+The plugin API follows the concept of configurable decorators. To understand plugins, you need to understand the concept and use of decorators first. If you already know what decorators are and how they work, you may want to skip this section.
 
-Basically a decorator is a function that takes a callable object and returns a new one. Most decorators are used to create `wrapper` functions that wrap the original and alter its input and/or return values at runtime. Accordingly, `decorator factories` or `configurable decorators` are functions or classes that return a decorator::
+A decorator is a callable (function, method or class) that takes a callable and returns a new one. Most decorators are used to create `wrapper` functions that wrap the original and alter its input and/or return values at runtime::
+
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            # Alter args or kwargs
+            rv = func(*args, **kwargs) # Call original function
+            # Alter return value
+            return rv
+        return wrapper
+
+In Python, functions are objects and you can define new functions at runtime. Additionally, if a variable is not found in the local namespace of a function, it is searched in the namespace the function was defined in. This is called `nested scope` and allows the ``wrapper()`` function in the last example to access and call ``func``, even if ``func`` originally belongs to the namespace of the ``decorator()`` function.
+
+Lets go one step further: `Decorator factories` or `configurable decorators` are functions that return a decorator::
 
     def factory(**config):
         def decorator(func):
@@ -23,29 +36,38 @@ Basically a decorator is a function that takes a callable object and returns a n
             return wrapper
         return decorator
 
-Inner functions have access to the local variables of the outer function they were defined in. This is why the ``wrapper()`` function in this example is able to call ``func`` internally or access the config-dict passed to the factory.
+Again, each function has access to all namespaces up to the global namespace thanks to `nested scoping`. A class-based decorator factory works very similar::
+
+    def DecoratorFactory(object):
+        def __init__(self, **config):
+            self.config = config
+        def __call__(self, func):
+            def wrapper(*args, **kwargs):
+                return func(*args, **kwargs)
+            return wrapper
 
 
-Common Plugin Interface: :class:`BasePlugin` 
---------------------------------------------
 
-All plugins inherit from :class:`BasePlugin` and override the :meth:`BasePlugin.setup` and :meth:`BasePlugin.wrap` methods as needed. This example shows a minimal plugin implementation and is a good starting point for new plugins::
+The Common Plugin Interface: :class:`BasePlugin` 
+================================================
+
+All plugins are required to subclass :class:`BasePlugin` in order to work with the Bottle plugin interface. The base class defines three abstract methods and subclasses should overwrite at least one of them to be of any use:
+
+.. autoclass:: BasePlugin
+   :members:
+
+The following example shows a minimal plugin implementation and is a good starting point for new plugins::
 
     class DummyPlugin(BasePlugin):
-        ''' This plugin does nothing useful. '''
+        ''' This plugin does nothing useful. Its name is "Dummy". '''
 
         def setup(self, app, **config):
-            ''' This is called only once during plugin initialisation.
-            
-                :param app: is an application object (Bottle instance).
-                :param **config: contains additional configuration.
-            '''
+            ''' Store configuration for later use. '''
             self.app = app
             self.config = config
 
         def wrap(self, callback):
-            ''' This decorator is applied to each route callback. '''
-            # @functools.wraps(func) is not needed. Bottle does that for you.
+            ''' Decorate route callback with a wrapper that does nothing at all. '''
             def wrapper(*a, **ka):
                 # Do stuff before the callback is called
                 return_value = callback(*a, **ka) # Call the callback
@@ -53,30 +75,16 @@ All plugins inherit from :class:`BasePlugin` and override the :meth:`BasePlugin.
                 return return_value # Return something
             return wrapper # Return the wrapped callback
 
-This plugin does nothing useful but TODO
+        def close(self):
+            ''' Do nothing on server shutdown... '''
+            pass
 
-* The ``setup(app, **config)`` method is called once during plugin initialisation. The first parameter is an instance of :class:`Bottle` and equals the default application if the user did not specify a different one. Additional parameters may be accepted or required for configuration.
-* The :meth:`BasePlugin.wrap` method is called once for each installed route callback and receives the callback as its only argument. It should return a callable and double as a decorator.
-* You may add additional methods and attributes as needed. Just make sure that the ``__init__`` and ``__call__`` methods of the base class remain available.
-
-Plugin Naming Convention
-------------------------
-
-Bottle is able to locate and install plugins by their name. For this to work, you need to follow a simple naming convention:
-
-* The plugin class must inherit from :class:`BasePlugin`.
-* The name of the plugin class must end in ``Plugin`` (e.g. ``SomethingPlugin``). 
-* Bottle searches for modules or packages named ``bottle_<name>`` where ``<name>`` is the name of the requested plugin (all lower-case).
-
-
-
-.. rubric:: Middleware Plugins
+Recipe: Middleware Plugins
+--------------------------
 
 You do not need the plugin API to install WSGI Middleware to a Bottle application, but is can still be useful::
 
     class SomeMiddlewarePlugin(BasePlugin):
-        plugin_name = 'some_middleware'
-
         def setup(self, app, **config):
             app.wsgi = SomeMiddleware(app.wsgi, **config)
 
@@ -84,10 +92,31 @@ WSGI middleware should not wrap the entire application object, but only the :met
 
 
 
-Behind the Scenes: Runtime Plugin Management
---------------------------------------------
+Plugin Naming Convention
+========================
+
+Bottle is able to locate and install plugins by their name. For this to work, you need to follow a few simple rules:
+
+* The plugin class must inherit from :class:`BasePlugin`.
+* The name of the plugin class must end in ``Plugin`` (e.g. ``SQLitePlugin``). 
+* Bottle searches for modules or packages named ``bottle_<name>`` where ``<name>`` is the name of the requested plugin (all lower-case). Example: ``bottle_sqlite``
+
+
+
+
+Behind the Scenes
+========================
+
+The Plugin API does more than just decoration route callbacks. It keeps track of installed plugins and ensures that new route are decorated properly and new plugins are applied to all routes including old ones.
+
+TODO: Explain on-demand decorating and callback caching.
 
 Plugins are applied on demand only. In other words: A plugin does not know about a route callback until the route is first requested.
+
+
+The return value of :meth:`BasePlugin.wrap` is cached and the cache is cleared every time the list of installed plugins changes.
+
+
 
 The return value of :meth:`BasePlugin.wrap` is cached and the cache is cleared every time the list of installed plugins changes. This can happen at any time, even at runtime. What does this mean for a plugin development?
 
