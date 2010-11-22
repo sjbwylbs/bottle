@@ -17,7 +17,7 @@ function fail {
 function runtest {
     # Run tests using interpreter $1 and test folder $2 if interpreter is installed.
     if type $1 &>/dev/null ; then
-        $1 $2/testall.py | tee test.log | egrep -i "(warning|error)" || fail
+        $1 $2/testall.py > test.log || fail
     else
         echo "Warning: Skipping test for $1 (Not installed)"
     fi

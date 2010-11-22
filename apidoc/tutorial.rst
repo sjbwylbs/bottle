@@ -234,6 +234,8 @@ The ordering of this list is significant. You may for example return a subclass 
 
 Bottle uses the `charset` parameter of the ``Content-Type`` header to decide how to encode unicode strings. This header defaults to ``text/html; charset=UTF8`` and can be changed using the :attr:`Response.content_type` attribute or by setting the :attr:`Response.charset` attribute directly. (The :class:`Response` object is described in the section :ref:`tutorial-response`.)
 
+::
+
     from bottle import response
     @route('/iso')
     def get_iso():
