@@ -329,13 +329,13 @@ class Bottle(object):
         """ Create a new bottle instance.
             You usually don't do that. Use `bottle.app.push()` instead.
         """
-        # List of installed routes including meta data.
+        #: List of installed routes including meta data.
         self.routes = []
-        # Dict of callbacks with plugins applied. Populated on demand.
-        # The self.routes index is used as key
+        #: Dict of callbacks with plugins applied. Populated on demand.
+        #: The :attr:'routes' index is used as key
         self.callbacks = {}
-        # Router object to map requests to self.routes indices.
-        # Created and configured on demand.
+        #: Router object to map requests to self.routes indices.
+        #: Created and configured on demand.
         self.router = None
 
         self.mounts = {}
@@ -388,18 +388,22 @@ class Bottle(object):
             :param plugin: Plugin instance, name or class to remove.
             :return: List of removed plugins. '''
         self.reset_plugins()
-        installed = self.plugins
         plugin = plugin_names.get(plugin) or plugin # Lookup plugin name
-        if plugin in installed: # Remove a specific instance
-            installed.remove(plugin)
+        if plugin in self.plugins: # Remove a specific instance
+            self.plugins.remove(plugin)
             plugin.close()
             return [plugin]
         if plugin is True: # Remove ALL plugins
-            return [self.uninstall(p)[0] for p in installed]
-        return [self.uninstall(p)[0] for p in installed if type(p) == plugin]
+            return [self.uninstall(p)[0] for p in self.plugins]
+        return [self.uninstall(p)[0] for p in self.plugins if type(p) == plugin]
+
+    def close(self):
+        ''' Closes the application (and all installed plugins). '''
+        self.uninstall(True)
+        self.stopped = True
 
     def reset_plugins(self):
-        ''' Force Bottle to reapply all plugins. '''
+        ''' Force Bottle to reapply all plugins.'''
         self.callbacks.clear()
 
     def _apply_plugins(self, index):
@@ -649,24 +653,21 @@ class Bottle(object):
         return self._cast(HTTPError(500, 'Unsupported response type: %s'\
                                          % type(first)), request, response)
 
-    def wsgi(self, environ, start_response):
-        """ The bottle WSGI-interface. """
-        environ['bottle.app'] = self
-        request.bind(environ)
-        response.bind()
-        out = self.handle(request.path, request.method)
-        out = self._cast(out, request, response)
-        # rfc2616 section 4.3
-        if response.status in (100, 101, 204, 304) or request.method == 'HEAD':
-            if hasattr(out, 'close'): out.close()
-            out = []
-        status = '%d %s' % (response.status, HTTP_CODES[response.status])
-        start_response(status, response.headerlist)
-        return out
-
     def __call__(self, environ, start_response):
+        """ The bottle WSGI-interface. """
         try:
-            return self.wsgi(environ, start_response)
+            environ['bottle.app'] = self
+            request.bind(environ)
+            response.bind()
+            out = self.handle(request.path, request.method)
+            out = self._cast(out, request, response)
+            # rfc2616 section 4.3
+            if response.status in (100, 101, 204, 304) or request.method == 'HEAD':
+                if hasattr(out, 'close'): out.close()
+                out = []
+            status = '%d %s' % (response.status, HTTP_CODES[response.status])
+            start_response(status, response.headerlist)
+            return out
         except (KeyboardInterrupt, SystemExit, MemoryError):
             raise
         except Exception, e:
@@ -681,6 +682,7 @@ class Bottle(object):
                            [('Content-Type', 'text/html')])
             return [tob(err)]
 
+    wsgi = __call__
 
 
 
@@ -1084,9 +1086,11 @@ class PluginMetaclass(type):
         for final in ('__init__', '__call__'):
             if name != 'BasePlugin' and final in dct:
                 raise PluginError('Plugins must not override %s' % final)
-        if not name.endswith('Plugin') or name == 'Plugin':
-            raise PluginError('Plugin class names must end in "Plugin"')
-        pname = dct.setdefault('plugin_name', name[:-6].lower())
+        if 'plugin_name' not in dct and name.endswith('Plugin') and name[:-6]:
+            dct['plugin_name'] = name[:-6].lower()
+        if not dct.get('plugin_name'):
+            raise PluginError('Plugin does not define a name.')
+        pname = dct['plugin_name']
         if pname in plugin_names and plugin_names[pname] != cls:
             raise PluginError('Plugin name is not unique: %s' % pname)
         pclass = type.__new__(cls, name, bases, dct)
@@ -1101,17 +1105,18 @@ class BasePlugin(object):
         self.setup(app or default_app(), *args, **kwargs)
 
     def __call__(self, func):
+        ''' Decorator API '''
         wrapped = self.wrap(func)
         if wrapped == func: return func
         wrapped._bottle_wrapped = func
         return functools.wraps(func)(wrapped)
 
-    def setup(self, app, **config):
+    def setup(self, app):
         ''' This method is called once during plugin initialisation.
             Override to prepare or configure a plugin.
 
             :param app: Associated application object (:class:`Bottle`).
-            Additional parameters may be used to accept configuration parameters.
+            Additional arguments may be accepted or required as needed.
         '''
         return
 
@@ -1812,6 +1817,8 @@ def run(app=None, server='wsgiref', host='127.0.0.1', port=8080,
             server.run(app)
     except KeyboardInterrupt:
         pass
+    finally:
+        app.close()
     if not server.quiet and not os.environ.get('BOTTLE_CHILD'):
         print "Shutting down..."
 
