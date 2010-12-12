@@ -29,7 +29,11 @@ class TestPluginMetaclass(unittest.TestCase):
 
     def test_overrule_name(self):
         class DoublePlugin(bottle.BasePlugin): pass
-        
+        class DoublePlugin(bottle.BasePlugin):
+            plugin_name = 'override'
+        self.assertTrue('double' in bottle.plugin_names)
+        self.assertTrue('override' in bottle.plugin_names)
+
 
 class TestPluginManagement(tools.ServerTestBase):
     def setUp(self):
