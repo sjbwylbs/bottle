@@ -4,46 +4,53 @@
 Plugin Development Guide
 ========================
 
-Browse the list of :doc:`available plugins </plugins/index>` and see if someone has solved your problem already. If not, then read ahead. This guide explains the `Common Plugin Interface` and how to write your own plugins.
+Browse the list of :doc:`available plugins </plugins/list>` and see if someone has solved your problem already. If not, then read ahead. This guide explains the `Common Plugin Interface` and how to write your own plugins.
 
 
 How Plugins Work
 ================
 
-The plugin API follows the concept of configurable decorators. To understand plugins, you need to understand the concept and use of decorators first. If you already know what decorators are and how they work, you may want to skip this section.
+The plugin API follows the concept of configurable `decorators <http://docs.python.org/glossary.html#term-decorator>`_. To understand plugins, you need to understand the concept and use of decorators first. If you already know what decorators are and how they work, you may want to skip this section.
 
-A decorator is a callable (function, method or class) that takes a callable and returns a new one. Most decorators are used to create `wrapper` functions that wrap the original and alter its input and/or return values at runtime::
+A decorator is a callable (function, method or class) that takes a callable and returns a new one. Most decorators are used to ``wrap`` a function and alter its arguments and/or return values at runtime. This example does not alter anything, but instead prints some debugging information every time the decorated function is called::
 
     def decorator(func):
         def wrapper(*args, **kwargs):
-            # Alter args or kwargs
-            rv = func(*args, **kwargs) # Call original function
-            # Alter return value
-            return rv
+            print 'Call arguments:', args, kwargs
+            result = func(*args, **kwargs)
+            print 'Result:', result
+            return result
         return wrapper
 
-In Python, functions are objects and you can define new functions at runtime. Additionally, if a variable is not found in the local namespace of a function, it is searched in the namespace the function was defined in. This is called `nested scope` and allows the ``wrapper()`` function in the last example to access and call ``func``, even if ``func`` originally belongs to the namespace of the ``decorator()`` function.
+Note that a function defined inside another function can refer to variables in the outer function. This is called `nested scope <http://docs.python.org/glossary.html#term-nested-scope>`_ and allows us to access and call `func` from within the nested ``wrapper()`` function.
 
-Lets go one step further: `Decorator factories` or `configurable decorators` are functions that return a decorator::
+Lets go one step further: `Decorator factories` or `configurable decorators` are callables that return a decorator::
 
     def factory(**config):
         def decorator(func):
             def wrapper(*args, **kwargs):
-                # Alter args or kwargs
-                rv = func(*args, **kwargs) # Call original function
-                # Alter return value
-                return rv
+                print 'Call arguments:', args, kwargs
+                print 'Configuration:', config
+                result = func(*args, **kwargs)
+                print 'Result:', result
+                return result
             return wrapper
         return decorator
 
-Again, each function has access to all namespaces up to the global namespace thanks to `nested scoping`. A class-based decorator factory works very similar::
+We can reduce the level of nesting and achieve the same by using a class::
 
     def DecoratorFactory(object):
         def __init__(self, **config):
             self.config = config
+
         def __call__(self, func):
+            ''' This is the actual decorator. '''
             def wrapper(*args, **kwargs):
-                return func(*args, **kwargs)
+                print 'Call arguments:', args, kwargs
+                print 'Configuration:', self.config
+                result = func(*args, **kwargs)
+                print 'Result:', result
+                return result
             return wrapper
 
 
@@ -55,6 +62,14 @@ All plugins are required to subclass :class:`BasePlugin` in order to work with t
 
 .. autoclass:: BasePlugin
    :members:
+
+The :meth:`BasePlugin.setup` method is called immediately after the plugin is installed to an application. You can use it to initialize the plugin.
+
+The :meth:`BasePlugin.close` method is called just before the plugin is removed from an application or the application is closed after a server shutdown. It can be used to clean up temporary files or close database handlers. Please note that this only works for plugins installed to an application. If the plugin is used as a decorator, it must be closed manually.
+
+The :meth:`BasePlugin.wrap` method is called once for each route and can be used to decorate, wrap or replace route callbacks. This method is called on demand only. In other words: A plugin does not know about a route until it is first requested.
+
+Please not that the wrapped callbacks are cached, but the cache is cleared every time the list of installed plugins changes. :meth:`BasePlugin.wrap` may then be called again for the same route. This can happen at any time, even while serving requests.
 
 The following example shows a minimal plugin implementation and is a good starting point for new plugins::
 
@@ -100,40 +115,6 @@ Bottle is able to locate and install plugins by their name. For this to work, yo
 * The plugin class must inherit from :class:`BasePlugin`.
 * The name of the plugin class must end in ``Plugin`` (e.g. ``SQLitePlugin``). 
 * Bottle searches for modules or packages named ``bottle_<name>`` where ``<name>`` is the name of the requested plugin (all lower-case). Example: ``bottle_sqlite``
-
-
-
-
-Behind the Scenes
-========================
-
-The Plugin API does more than just decoration route callbacks. It keeps track of installed plugins and ensures that new route are decorated properly and new plugins are applied to all routes including old ones.
-
-TODO: Explain on-demand decorating and callback caching.
-
-Plugins are applied on demand only. In other words: A plugin does not know about a route callback until the route is first requested.
-
-
-The return value of :meth:`BasePlugin.wrap` is cached and the cache is cleared every time the list of installed plugins changes.
-
-
-
-The return value of :meth:`BasePlugin.wrap` is cached and the cache is cleared every time the list of installed plugins changes. This can happen at any time, even at runtime. What does this mean for a plugin development?
-
-  * The :meth:`BasePlugin.wrap` method is called once for each route callback most of the time, but may be called again after the cache is flushed or never. 
-
-
-Plugins may be installed or removed at any time, even at runtime while serving requests.
-
-The :meth:`BasePlugin.setup` method is called once during plugin initialisation.
-
-The :meth:`BasePlugin.wrap` method is called on demand and the result is cached. In other words: 
-
-
- A plugin can call :meth:`Bottle.reset_plugins` to clear the cache and force all plugins to be reapplied.
-
-
-calls the setup-routine of the plugin and connects it to the application. The plugin is not applied to the route callbacks yet. This is delayed to make sure no routes get missed. You can install plugins first and add routes later.
 
 
 

@@ -13,7 +13,7 @@ html_coverage:
 docs:
 	cd apidoc/; $(MAKE) html
 	mkdir -p build
-	rm -rf build/docs
+	rm -rf build/docs &> /dev/null
 	mv apidoc/html build/docs
 
 release:
