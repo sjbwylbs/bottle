@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 import unittest
 import sys, os.path
-from bottle import request, response
+import bottle
+from bottle import request, response, tob, tonat, touni
 import tools
-from tools import tob
 import wsgiref.util
 
-class TestEnviron(unittest.TestCase):
+class TestRequest(unittest.TestCase):
     def test_path(self):
         """ Environ: PATH_INFO """ 
         t = dict()
@@ -75,7 +75,7 @@ class TestEnviron(unittest.TestCase):
         e['HTTP_SOME_HEADER'] = 'some value'
         request.bind(e)
         request['HTTP_SOME_OTHER_HEADER'] = 'some other value'
-        self.assertTrue('Some-Header' in request.header)
+        self.assertTrue('Some-Header' in request.headers)
         self.assertTrue(request.header['Some-Header'] == 'some value')
         self.assertTrue(request.header['Some-Other-Header'] == 'some other value')
 
@@ -211,6 +211,27 @@ class TestEnviron(unittest.TestCase):
         self.assertEqual(42, len(request.body.readline()))
         self.assertEqual(42, len(request.body.readline(1024)))
 
+class TestResponse(unittest.TestCase):
+    def setUp(self):
+        response.bind()
+
+    def test_set_cookie(self):
+        response.set_cookie('name', 'value', max_age=5)
+        response.set_cookie('name2', 'value 2', path='/foo')
+        cookies = [value for name, value in response.wsgiheader()
+                   if name.title() == 'Set-Cookie']
+        cookies.sort()
+        self.assertTrue(cookies[0], 'name=value; Max-Age=5')
+        self.assertTrue(cookies[1], 'name2="value 2"; Path=/foo')
+
+    def test_delete_cookie(self):
+        response.set_cookie('name', 'value')
+        response.delete_cookie('name')
+        cookies = [value for name, value in response.wsgiheader()
+                   if name.title() == 'Set-Cookie']
+        self.assertTrue('name=;' in cookies[0])
+
+
 class TestMultipart(unittest.TestCase):
     def test_multipart(self):
         """ Environ: POST (multipart files and multible values per key) """
@@ -236,6 +257,38 @@ class TestMultipart(unittest.TestCase):
         # Field (multi)
         self.assertEqual(2, len(request.POST.getall('field2')))
         self.assertEqual(['value2', 'value3'], request.POST.getall('field2'))
+
+
+class TestWSGIHeaderDict(unittest.TestCase):
+    def setUp(self):
+        self.env = {}
+        self.headers = bottle.WSGIHeaderDict(self.env)
+
+    def test_native(self):
+        self.env['HTTP_TEST_HEADER'] = 'foobar'
+        self.assertEqual(self.headers['Test-header'], 'foobar')
+
+    def test_bytes(self):
+        self.env['HTTP_TEST_HEADER'] = tob('foobar')
+        self.assertEqual(self.headers['Test-Header'], 'foobar')
+
+    def test_unicode(self):
+        self.env['HTTP_TEST_HEADER'] = touni('foobar')
+        self.assertEqual(self.headers['Test-Header'], 'foobar')
+
+    def test_dict(self):
+        for key in 'foo-bar Foo-Bar foo-Bar FOO-BAR'.split():
+            self.assertTrue(key not in self.headers)
+            self.assertEqual(self.headers.get(key), None)
+            self.assertEqual(self.headers.get(key, 5), 5)
+            self.assertRaises(KeyError, lambda x: self.headers[x], key)
+        self.env['HTTP_FOO_BAR'] = 'test'
+        for key in 'foo-bar Foo-Bar foo-Bar FOO-BAR'.split():
+            self.assertTrue(key in self.headers)
+            self.assertEqual(self.headers.get(key), 'test')
+            self.assertEqual(self.headers.get(key, 5), 'test')
+
+
 
 if __name__ == '__main__': #pragma: no cover
     unittest.main()

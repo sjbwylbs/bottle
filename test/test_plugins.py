@@ -40,11 +40,12 @@ class TestPluginManagement(tools.ServerTestBase):
         super(TestPluginManagement, self).setUp()
         self.old_pdict = bottle.plugin_names.copy()
         class MyTestPlugin(bottle.BasePlugin):
-            def setup(self, app, **config):
-                self.app = app
+            def __init__(self, *a, **config):
                 self.config = config
+            def setup(self, app):
+                self.app = app
                 c = None
-            def wrap(self, func):
+            def apply(self, func):
                 def wrapper(*a, **ka):
                     self.lastcall = func, a, ka
                     return ''.join(func(*a, **ka)).replace('no-','my-')
@@ -66,7 +67,7 @@ class TestPluginManagement(tools.ServerTestBase):
         self.verify_installed(plugin, self.pclass, foo='bar')
 
     def test_install_by_instance(self):
-        plugin = self.app.install(self.pclass(self.app, foo='bar'))
+        plugin = self.app.install(self.pclass(foo='bar'))
         self.verify_installed(plugin, self.pclass, foo='bar')
 
     def test_install_by_name(self):
@@ -77,7 +78,11 @@ class TestPluginManagement(tools.ServerTestBase):
         self.assertRaises(ImportError, self.app.install, 'noplugin')
 
     def test_install_not_a_plugin(self):
-        self.assertRaises(bottle.PluginError, self.app.install, type(dict))
+        self.assertRaises(bottle.PluginError, self.app.install, {})
+        self.assertRaises(bottle.PluginError, self.app.install, [])
+        self.assertRaises(bottle.PluginError, self.app.install, True)
+        self.assertRaises(bottle.PluginError, self.app.install, dict)
+        
 
     def test_uninstall_by_instance(self):
         plugin = self.app.install(self.pclass, foo='bar')

@@ -5,13 +5,14 @@
 .. _cheetah: http://www.cheetahtemplate.org/
 .. _jinja2: http://jinja.pocoo.org/2/
 .. _paste: http://pythonpaste.org/
-.. _fapws3: http://github.com/william-os4y/fapws3
+.. _fapws3: https://github.com/william-os4y/fapws3
+.. _bjoern: https://github.com/jonashaag/bjoern
 .. _flup: http://trac.saddi.com/flup
 .. _cherrypy: http://www.cherrypy.org/
 .. _WSGI: http://www.wsgi.org/wsgi/
 .. _Python: http://python.org/
-.. _testing: http://github.com/defnull/bottle/raw/master/bottle.py
-.. _issue_tracker: http://github.com/defnull/bottle/issues
+.. _testing: https://github.com/defnull/bottle/raw/master/bottle.py
+.. _issue_tracker: https://github.com/defnull/bottle/issues
 .. _PyPi: http://pypi.python.org/pypi/bottle
 
 ============================
@@ -24,7 +25,7 @@ Bottle is a fast, simple and lightweight WSGI_ micro web-framework for Python_. 
 * **Routing:** Requests to function-call mapping with support for clean and  dynamic URLs.
 * **Templates:** Fast and pythonic :ref:`built-in template engine <tutorial-templates>` and support for mako_, jinja2_ and cheetah_ templates.
 * **Utilities:** Convenient access to form data, file uploads, cookies, headers and other HTTP related metadata.
-* **Server:** Built-in HTTP development server and support for paste_, fapws3_, `Google App Engine <http://code.google.com/intl/en-US/appengine/>`_, cherrypy_ or any other WSGI_ capable HTTP server.
+* **Server:** Built-in HTTP development server and support for paste_, fapws3_, bjoern_, `Google App Engine <http://code.google.com/intl/en-US/appengine/>`_, cherrypy_ or any other WSGI_ capable HTTP server.
 
 .. rubric:: Example: "Hello World" in a bottle
 
@@ -42,7 +43,7 @@ Bottle is a fast, simple and lightweight WSGI_ micro web-framework for Python_. 
 
 .. _download:
 
-.. __: http://github.com/defnull/bottle/raw/master/bottle.py
+.. __: https://github.com/defnull/bottle/raw/master/bottle.py
 
 Install the latest stable release via PyPi_ (``easy_install -U bottle``) or download `bottle.py`__ (unstable) into your project directory. There are no hard [1]_ dependencies other than the Python standard library. Bottle runs with **Python 2.5+ and 3.x** (using 2to3)
 
