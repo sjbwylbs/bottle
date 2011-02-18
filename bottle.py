@@ -8,7 +8,7 @@ Python Standard Library.
 
 Homepage and documentation: http://bottle.paws.de/
 
-Copyright (c) 2010, Marcel Hellkamp.
+Copyright (c) 2011, Marcel Hellkamp.
 License: MIT (see LICENSE.txt for details)
 """
 
@@ -39,7 +39,7 @@ import warnings
 from Cookie import SimpleCookie
 from tempfile import TemporaryFile
 from traceback import format_exc
-from urllib import quote as urlquote
+from urllib import quote_plus as urlquote
 from urlparse import urlunsplit, urljoin
 
 try: from collections import MutableMapping as DictMixin
@@ -124,11 +124,11 @@ class DictProperty(object):
         return storage[key]
 
     def __set__(self, obj, value):
-        if self.read_only: raise ApplicationError("Read-Only property.")
+        if self.read_only: raise AttributeError("Read-Only property.")
         getattr(obj, self.attr)[self.key] = value
 
     def __delete__(self, obj):
-        if self.read_only: raise ApplicationError("Read-Only property.")
+        if self.read_only: raise AttributeError("Read-Only property.")
         del getattr(obj, self.attr)[self.key]
 
 def cached_property(func):
@@ -206,23 +206,28 @@ class RouteBuildError(RouteError):
 class Router(object):
     ''' A Router is an ordered collection of route->target pairs. It is used to
         efficiently match WSGI requests against a number of routes and return
-        the first target that satisfies the request. A route is defined by a
-        path-rule and a HTTP method.
-        
+        the first target that satisfies the request. The target may be anything,
+        usually a string, ID or callable object. A route consists of a path-rule
+        and a HTTP method.
+
         The path-rule is either a static path (e.g. `/contact`) or a dynamic
         path that contains wildcards (e.g. `/wiki/:page`). By default, wildcards
         consume characters up to the next slash (`/`). To change that, you may
         add a regular expression pattern (e.g. `/wiki/:page#[a-z]+#`).
 
         For performance reasons, static routes (rules without wildcards) are
-        checked first. Dynamic routes are tested in order and the first
-        matching rule returns. Try to avoid ambiguous or overlapping rules.
+        checked first. Dynamic routes are searched in order. Try to avoid
+        ambiguous or overlapping rules.
 
         The HTTP method string matches only on equality, with two exceptions:
           * ´GET´ routes also match ´HEAD´ requests if there is no appropriate
             ´HEAD´ route installed.
           * ´ANY´ routes do match if there is no other suitable route installed.
+
+        An optional ``name`` parameter is used by :meth:`build` to identify
+        routes.
     '''
+
     default = '[^/]+'
 
     @lazy_attribute
@@ -236,8 +241,12 @@ class Router(object):
         self.static = {}  # Cache for static routes: {path: {method: target}}
         self.dynamic = [] # Cache for dynamic routes. See _compile()
 
-    def add(self, rule, method, target, name=None):
-        ''' Add a new route or overwrite an existing target. '''
+    def add(self, rule, method, target, name=None, static=False):
+        ''' Add a new route or replace the target for an existing route. '''
+        if static:
+            depr("Use a backslash to escape ':' in routes.") # 0.9
+            rule = rule.replace(':','\\:')
+
         if rule in self.routes:
             self.routes[rule][method.upper()] = target
         else:
@@ -247,17 +256,6 @@ class Router(object):
                 self.static, self.dynamic = {}, {}
         if name:
             self.named[name] = (rule, None)
-
-    def delete(self, rule, method=None):
-        ''' Delete an existing route. Omit `method` to delete all targets. '''
-        if rule not in self.routes and rule in self.named:
-            rule = self.named[rule][0]
-        if rule in self.routes:
-            if method: del self.routes[rule][method]
-            else: self.routes[rule].clear()
-            if not self.routes[rule]:
-                del self.routes[rule]
-                self.rules.remove(rule)
 
     def build(self, _name, *anon, **args):
         ''' Return a string that matches a named route. Use keyword arguments
@@ -284,7 +282,7 @@ class Router(object):
         except KeyError, e:
             raise RouteBuildError(*e.args)
         
-        if args: url += ['?', urlencode(args.iteritems())]
+        if args: url += ['?', urlquote(args.iteritems())]
         return ''.join(url)
 
     def match(self, environ):
@@ -548,34 +546,36 @@ class Bottle(object):
         def wrapper(func):
             for rule in makelist(path) or yieldroutes(func):
                 for verb in makelist(method):
-                    if static:
-                        rule = rule.replace(':','\\:')
-                        depr("Use backslash to escape ':' in routes.")
-                    #TODO: Prepare this for plugins
-                    self.router.add(rule, verb, len(self.routes), name=name)
+                    self.router.add(rule, verb, len(self.routes), name=name, static=static)
                     self.routes.append((func, decorators, skiplist))
             return func
         return wrapper(callback) if callback else wrapper
 
-    def get(self, path=None, method='GET', **kargs):
-        """ Decorator: Bind a function to a GET request path.
-            See :meth:'route' for details. """
-        return self.route(path, method, **kargs)
+    def _add_hook_wrapper(self, func):
+        ''' Add hooks to a callable. See #84 '''
+        @functools.wraps(func)
+        def wrapper(*a, **ka):
+            for hook in self.hooks['before_request']: hook()
+            response.output = func(*a, **ka)
+            for hook in self.hooks['after_request']: hook()
+            return response.output
+        return wrapper
 
-    def post(self, path=None, method='POST', **kargs):
-        """ Decorator: Bind a function to a POST request path.
-            See :meth:'route' for details. """
-        return self.route(path, method, **kargs)
+    def get(self, path=None, method='GET', **options):
+        """ Equals :meth:`route`. """
+        return self.route(path, method, **options)
 
-    def put(self, path=None, method='PUT', **kargs):
-        """ Decorator: Bind a function to a PUT request path.
-            See :meth:'route' for details. """
-        return self.route(path, method, **kargs)
+    def post(self, path=None, method='POST', **options):
+        """ Equals :meth:`route` with a ``POST`` method parameter. """
+        return self.route(path, method, **options)
 
-    def delete(self, path=None, method='DELETE', **kargs):
-        """ Decorator: Bind a function to a DELETE request path.
-            See :meth:'route' for details. """
-        return self.route(path, method, **kargs)
+    def put(self, path=None, method='PUT', **options):
+        """ Equals :meth:`route` with a ``PUT`` method parameter. """
+        return self.route(path, method, **options)
+
+    def delete(self, path=None, method='DELETE', **options):
+        """ Equals :meth:`route` with a ``DELETE`` method parameter. """
+        return self.route(path, method, **options)
 
     def error(self, code=500):
         """ Decorator: Register an output handler for a HTTP error code"""
@@ -786,14 +786,18 @@ class Request(threading.local, DictMixin):
     @property
     def fullpath(self):
         """ Request path including SCRIPT_NAME (if present). """
-        return self.environ.get('SCRIPT_NAME', '').rstrip('/') + self.path
+        spath = self.environ.get('SCRIPT_NAME','').rstrip('/') + '/'
+        rpath = self.path.lstrip('/')
+        return urljoin(spath, rpath)
 
     @property
     def url(self):
         """ Full URL as requested by the client (computed).
 
             This value is constructed out of different environment variables
-            and includes scheme, host, port, scriptname, path and query string. 
+            and includes scheme, host, port, scriptname, path and query string.
+            
+            Special characters are NOT escaped.
         """
         scheme = self.environ.get('wsgi.url_scheme', 'http')
         host   = self.environ.get('HTTP_X_FORWARDED_HOST')
@@ -803,7 +807,7 @@ class Request(threading.local, DictMixin):
             port = self.environ.get('SERVER_PORT', '80')
             if (scheme, port) not in (('https','443'), ('http','80')):
                 host += ':' + port
-        parts = (scheme, host, urlquote(self.fullpath), self.query_string, '')
+        parts = (scheme, host, self.fullpath, self.query_string, '')
         return urlunsplit(parts)
 
     @property
@@ -818,7 +822,7 @@ class Request(threading.local, DictMixin):
 
     @DictProperty('environ', 'bottle.headers', read_only=True)
     def headers(self):
-        ''' Request HTTP Headers stored in a :cls:`HeaderDict`. '''
+        ''' Request HTTP Headers stored in a :class:`HeaderDict`. '''
         return WSGIHeaderDict(self.environ)
 
     @DictProperty('environ', 'bottle.get', read_only=True)
@@ -1271,14 +1275,14 @@ class WSGIHeaderDict(DictMixin):
 
 
 class AppStack(list):
-    """ A stack implementation. """
+    """ A stack-like list. Calling it returns the head of the stack. """
 
     def __call__(self):
-        """ Return the current default app. """
+        """ Return the current default application. """
         return self[-1]
 
     def push(self, value=None):
-        """ Add a new Bottle instance to the stack """
+        """ Add a new :class:`Bottle` instance to the stack """
         if not isinstance(value, Bottle):
             value = Bottle()
         self.append(value)
