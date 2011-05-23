@@ -36,17 +36,17 @@
 
 .. _installation:
 
-Installation
+安装
 ==============================================================================
 
-Bottle does not depend on any external libraries. You can just download `bottle.py </bottle.py>`_ into your project directory and start coding:
+Bottle不基于任何额外的库. 你可以直接下载`bottle.py </bottle.py>`_ 到你的项目文件夹,然后马上开始编码:
 
 .. code-block:: bash
 
     $ curl -O http://bottlepy.org/bottle.py
     $ 2to3 -w bottle.py  # Python 3.x users only!
 
-This will get you the latest development snapshot that includes all the new features. If you prefer a more stable environment, you should stick with a stable release. These are available on `PyPi <http://pypi.python.org/pypi/bottle>`_ and can be installed via :command:`pip` (recommended), :command:`easy_install` or your Linux distributions package manager:
+你将拿到包含全部新功能的最新开发快照.如果你更喜欢稳定的环境, 你应该使用稳定版. 它们位于`PyPi <http://pypi.python.org/pypi/bottle>`_ 可以通过 :command:`pip` (recommended), :command:`easy_install` 或者Linux发行版的包管理器进行安装:
 
 .. code-block:: bash
 
@@ -54,13 +54,13 @@ This will get you the latest development snapshot that includes all the new feat
     $ sudo easy_install bottle             # alternative to pip
     $ sudo apt-get install python-bottle   # works for debian, ubuntu, ...
 
-In either way, you'll need Python 2.5 or newer to run bottle applications. If you do not have permissions to install packages system-wide or simply don't want to, I suggest crating a `virtualenv <http://pypi.python.org/pypi/virtualenv>`_ first. 
+无论何种方式, 你都需要Python 2.5或更高版本来运行bottle应用. 如果你无权或不想安装到系统层面,我建议你先设置`virtualenv <http://pypi.python.org/pypi/virtualenv>`_ . 
  
 
-A minimal Bottle Application
+最小化的Bottle应用
 ==============================================================================
 
-This tutorial assumes you have Bottle either `installed or copied <#installation>`_ into your project directory. Lets start with a very basic "Hello World" example::
+本教程假设你已经把Bottle`安装或复制 <#installation>`_ 到你的项目文件夹. 让我们开始一个非常简单的"Hello World"例子::
 
     from bottle import route, run
     
@@ -71,11 +71,11 @@ This tutorial assumes you have Bottle either `installed or copied <#installation
     run(host='localhost', port=8080)
 
 
-Whats happening here?
+这是怎么回事?
 
-1. First we import some Bottle components. The :func:`route` decorator and the :func:`run` function. 
-2. The :func:`route` :term:`decorator` is used do bind a piece of code to an URL. In this example we want to answer requests to the ``/hello`` URL.
-3. This function is the :term:`handler function` or :term:`callback` for the ``/hello`` route. It is called every time someone requests the ``/hello`` URL and is responsible for generating the page content.
+1. 首先,我们导入了一些Bottle组件. The :func:`route` decorator and the :func:`run` 函数. 
+2. :func:`route` :term:`decorator` 用来绑定一小段代码到一个URL. 在这个例子,我们希望响应请求``/hello``的URL.
+3. 这个函数被称为``/hello`` 路由的 :term:`处理函数` 或 :term:`回调函数` . It is called every time someone requests the ``/hello`` URL and is responsible for generating the page content.
 4. In this example we simply return a string to the browser.
 5. In the last line we start the actual HTTP server. The default is a development server running on 'localhost' port 8080 and serving requests until you hit :kbd:`Control-c`.
 
