@@ -5,20 +5,20 @@ Bottle Web Framework
   :alt: Bottle Logo
   :align: right
 
-BottleÊÇÒ»¸ö¼òµ¥,¿ìËÙµÄÎ¢ÐÍ¿ò¼Ü,×¨ÎªÐ¡ÐÍWebÓ¦ÓÃ¶øÉè¼ÆµÄ. ËüÌá¹©°üº¬URL²ÎÊýµÄÇëÇó
-·ÖÅÉ(URLÂ·ÓÉ), Ä£°å, Ò»¸öÄÚÖÃHttp·þÎñÆ÷ºÍÐí¶àµÚÈý·½WSGI/Http·þÎñÆ÷ÊÊÅäÆ÷ÓëÄ£°åÒý
-Çæ - ½öÒ»¸öÎÄ¼þ,ÇÒÎÞÐèÒÀÀµPython±ê×¼¿âÖ®ÍâµÄÄ£¿é.
+Bottleæ˜¯ä¸€ä¸ªç®€å•,å¿«é€Ÿçš„å¾®åž‹æ¡†æž¶,ä¸“ä¸ºå°åž‹Webåº”ç”¨è€Œè®¾è®¡çš„. å®ƒæä¾›åŒ…å«URLå‚æ•°çš„è¯·æ±‚
+åˆ†æ´¾(URLè·¯ç”±), æ¨¡æ¿, ä¸€ä¸ªå†…ç½®HttpæœåŠ¡å™¨å’Œè®¸å¤šç¬¬ä¸‰æ–¹WSGI/HttpæœåŠ¡å™¨é€‚é…å™¨ä¸Žæ¨¡æ¿å¼•
+æ“Ž - ä»…ä¸€ä¸ªæ–‡ä»¶,ä¸”æ— éœ€ä¾èµ–Pythonæ ‡å‡†åº“ä¹‹å¤–çš„æ¨¡å—.
 
-Ê×Ò³ºÍÎÄµµ: http://bottle.paws.de/
+é¦–é¡µå’Œæ–‡æ¡£: http://bottle.paws.de/
 License: MIT (see LICENSE.txt)
 
 Installation and Dependencies
 -----------------------------
 
-Ö´ÐÐ``pip install bottle``À´°²×°bottle,»òÕßÖ±½Ó`ÏÂÔØ bottle.py <http://pypi.python.org/pypi/bottle>`_ ²¢·ÅÈëÄãµÄÏîÄ¿ÎÄ¼þ¼ÐÖÐ. ³ýÁËPython±ê×¼¿âÖ®Íâ,Ã»ÓÐÈÎºÎÇ¿ÖÆÒÀÀµµÄµÚÈý·½Ä£¿é.
+æ‰§è¡Œ``pip install bottle``æ¥å®‰è£…bottle,æˆ–è€…ç›´æŽ¥`ä¸‹è½½ bottle.py <http://pypi.python.org/pypi/bottle>`_ å¹¶æ”¾å…¥ä½ çš„é¡¹ç›®æ–‡ä»¶å¤¹ä¸­. é™¤äº†Pythonæ ‡å‡†åº“ä¹‹å¤–,æ²¡æœ‰ä»»ä½•å¼ºåˆ¶ä¾èµ–çš„ç¬¬ä¸‰æ–¹æ¨¡å—.
 
 
-Àý×Ó
+ä¾‹å­
 -------
 
 ::

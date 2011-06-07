@@ -16,18 +16,18 @@
 .. _PyPi: http://pypi.python.org/pypi/bottle
 
 ============================
-Bottle: Python Web ¿ò¼Ü
+Bottle: Python Web æ¡†æž¶
 ============================
 
-BottleÊÇ¿ìËÙ,¼òµ¥,ÇáÁ¿¼¶WSGI_µÄPython_Î¢ÐÍWeb¿ò¼Ü. ËüµÄ·¢ÐÐ°æ½ö½öÊÇµ¥Ò»Ò»¸öÎÄ¼þÄ£¿é,³ýÁË`Python±ê×¼¿â <http://docs.python.org/library/>`_Ö®ÍâÎÞÈÎºÎÒÀÀµ. 
+Bottleæ˜¯å¿«é€Ÿ,ç®€å•,è½»é‡çº§WSGI_çš„Python_å¾®åž‹Webæ¡†æž¶. å®ƒçš„å‘è¡Œç‰ˆä»…ä»…æ˜¯å•ä¸€ä¸€ä¸ªæ–‡ä»¶æ¨¡å—,é™¤äº†`Pythonæ ‡å‡†åº“ <http://docs.python.org/library/>`_ä¹‹å¤–æ— ä»»ä½•ä¾èµ–. 
 
 
-* **Â·ÓÉ:** ÇëÇó--·½·¨µ÷ÓÃÖ®¼äµÄÓ³Éä, Ö§³Ö¹Ì¶¨Óë¶¯Ì¬URLÓ³Éä.
-* **Ä£°å:** ¿ìËÙ,Python·ç¸ñ :ref:`ÄÚÖÃÄ£°åÒýÇæ <tutorial-templates>` ,ÇÒÖ§³Ö mako_, jinja2_ and cheetah_ Ä£°å.
-* **¹¤¾ß¼¯:** ·½±ãµØ·ÃÎÊ±íµ¥Êý¾Ý,ÎÄ¼þÉÏ´«, Cookies, HeadersºÍÆäËûHTTPÏà¹ØµÄÔªÊý¾Ý.
-* **·þÎñÆ÷:** ÄÚÖÃHttp¿ª·¢·þÎñÆ÷,Ö§³Öpaste_, fapws3_, bjoern_, `Google App Engine <http://code.google.com/intl/en-US/appengine/>`_, cherrypy_ »òÆäËûWSGI_¼æÈÝµÄHTTP·þÎñÆ÷.
+* **è·¯ç”±:** è¯·æ±‚--æ–¹æ³•è°ƒç”¨ä¹‹é—´çš„æ˜ å°„, æ”¯æŒå›ºå®šä¸ŽåŠ¨æ€URLæ˜ å°„.
+* **æ¨¡æ¿:** å¿«é€Ÿ,Pythoné£Žæ ¼ :ref:`å†…ç½®æ¨¡æ¿å¼•æ“Ž <tutorial-templates>` ,ä¸”æ”¯æŒ mako_, jinja2_ and cheetah_ æ¨¡æ¿.
+* **å·¥å…·é›†:** æ–¹ä¾¿åœ°è®¿é—®è¡¨å•æ•°æ®,æ–‡ä»¶ä¸Šä¼ , Cookies, Headerså’Œå…¶ä»–HTTPç›¸å…³çš„å…ƒæ•°æ®.
+* **æœåŠ¡å™¨:** å†…ç½®Httpå¼€å‘æœåŠ¡å™¨,æ”¯æŒpaste_, fapws3_, bjoern_, `Google App Engine <http://code.google.com/intl/en-US/appengine/>`_, cherrypy_ æˆ–å…¶ä»–WSGI_å…¼å®¹çš„HTTPæœåŠ¡å™¨.
 
-.. rubric:: Àý×Ó: "Hello World" in a bottle
+.. rubric:: ä¾‹å­: "Hello World" in a bottle
 
 ::
 
@@ -39,17 +39,17 @@ BottleÊÇ¿ìËÙ,¼òµ¥,ÇáÁ¿¼¶WSGI_µÄPython_Î¢ÐÍWeb¿ò¼Ü. ËüµÄ·¢ÐÐ°æ½ö½öÊÇµ¥Ò»Ò»¸öÎÄ¼þÄ
 
   run(host='localhost', port=8080)
 
-.. rubric:: ÏÂÔØÓë°²×°
+.. rubric:: ä¸‹è½½ä¸Žå®‰è£…
 
 .. _download:
 
 .. __: https://github.com/defnull/bottle/raw/master/bottle.py
 
-Í¨¹ýPyPi_ (``easy_install -U bottle``)°²×°×îÐÂ·¢ÐÐ°æ»òÕßÏÂÔØ`bottle.py`__ (·ÇÎÈ¶¨°æ)µ½ÄãµÄÏîÄ¿Ä¿Â¼. ³ýÁËPython±ê×¼¿âÎª,Ã»ÓÐÈÎºÎÇ¿ÖÆÒÀÀµµÄÄ£¿é[1]_. Bottle¼æÈÝ**Python 2.5+ and 3.x** (Ê¹ÓÃ 2to3)
+é€šè¿‡PyPi_ (``easy_install -U bottle``)å®‰è£…æœ€æ–°å‘è¡Œç‰ˆæˆ–è€…ä¸‹è½½`bottle.py`__ (éžç¨³å®šç‰ˆ)åˆ°ä½ çš„é¡¹ç›®ç›®å½•. é™¤äº†Pythonæ ‡å‡†åº“ä¸º,æ²¡æœ‰ä»»ä½•å¼ºåˆ¶ä¾èµ–çš„æ¨¡å—[1]_. Bottleå…¼å®¹**Python 2.5+ and 3.x** (ä½¿ç”¨ 2to3)
 
-ÓÃ»§ÊÖ²á
+ç”¨æˆ·æ‰‹å†Œ
 ===============
-Èç¹ûÄãÏ£ÍûÑ§Ï°ÈçºÎÊ¹ÓÃbottle¿ò¼Ü½øÐÐWeb¿ª·¢,Çë¼ÌÐøÍùÏÂ¿´.Èç¹ûÕâÀïµÄÄÚÈÝÎÞ·¨½â´ðÄãÎÊÌâ, Çë½«ÄãµÄÎÊÌâ·¢ÐÅµ½ `ÓÊ¼þ×é <mailto:bottlepy@googlegroups.com>`_.
+å¦‚æžœä½ å¸Œæœ›å­¦ä¹ å¦‚ä½•ä½¿ç”¨bottleæ¡†æž¶è¿›è¡ŒWebå¼€å‘,è¯·ç»§ç»­å¾€ä¸‹çœ‹.å¦‚æžœè¿™é‡Œçš„å†…å®¹æ— æ³•è§£ç­”ä½ é—®é¢˜, è¯·å°†ä½ çš„é—®é¢˜å‘ä¿¡åˆ° `é‚®ä»¶ç»„ <mailto:bottlepy@googlegroups.com>`_.
 
 .. toctree::
    :maxdepth: 2
@@ -60,9 +60,9 @@ BottleÊÇ¿ìËÙ,¼òµ¥,ÇáÁ¿¼¶WSGI_µÄPython_Î¢ÐÍWeb¿ò¼Ü. ËüµÄ·¢ÐÐ°æ½ö½öÊÇµ¥Ò»Ò»¸öÎÄ¼þÄ
    plugins/index
 
 
-»ù´¡
+åŸºç¡€
 ==============
-Ö¸ÄÏºÍHOWTOs.
+æŒ‡å—å’ŒHOWTOs.
 
 .. toctree::
    :maxdepth: 2
@@ -73,10 +73,10 @@ BottleÊÇ¿ìËÙ,¼òµ¥,ÇáÁ¿¼¶WSGI_µÄPython_Î¢ÐÍWeb¿ò¼Ü. ËüµÄ·¢ÐÐ°æ½ö½öÊÇµ¥Ò»Ò»¸öÎÄ¼þÄ
    faq
 
 
-¿ª·¢Óë¹±Ï×
+å¼€å‘ä¸Žè´¡çŒ®
 ============================
 
-ÕâÐ©ÕÂ½ÚÊÇ¸øÄÇÐ©ÓÐÐËÈ¤ÁË½âbottle¿ª·¢Óë·¢²¼Á÷³ÌµÄ¿ª·¢ÈËÔ±µÄ.
+è¿™äº›ç« èŠ‚æ˜¯ç»™é‚£äº›æœ‰å…´è¶£äº†è§£bottleå¼€å‘ä¸Žå‘å¸ƒæµç¨‹çš„å¼€å‘äººå‘˜çš„.
 
 .. toctree::
    :maxdepth: 2
@@ -91,18 +91,18 @@ BottleÊÇ¿ìËÙ,¼òµ¥,ÇáÁ¿¼¶WSGI_µÄPython_Î¢ÐÍWeb¿ò¼Ü. ËüµÄ·¢ÐÐ°æ½ö½öÊÇµ¥Ò»Ò»¸öÎÄ¼þÄ
 
    plugins/index
    
-ÊÚÈ¨
+æŽˆæƒ
 ==================
 
-´úÂëºÍÎÄµµ¶¼»ùÓÚMITÐ­Òé:
+ä»£ç å’Œæ–‡æ¡£éƒ½åŸºäºŽMITåè®®:
 
 .. include:: ../LICENSE.txt
   :literal:
 
-BottleµÄLogo²¢*²»*ÔÚÕâÐ©Ð­ÒéÏÂ!. ËüÔÊÐí±»ÓÃÓÚÍ¨ÍùbottleÖ÷Ò³µÄLogo,»òÕßÎ´ÔøÐÞ¸ÄµÄbottleÀïÃæ.
-ÆäËûÓÃÍ¾ÇëÏÈÑ¯ÎÊ!!.
+Bottleçš„Logoå¹¶*ä¸*åœ¨è¿™äº›åè®®ä¸‹!. å®ƒå…è®¸è¢«ç”¨äºŽé€šå¾€bottleä¸»é¡µçš„Logo,æˆ–è€…æœªæ›¾ä¿®æ”¹çš„bottleé‡Œé¢.
+å…¶ä»–ç”¨é€”è¯·å…ˆè¯¢é—®!!.
 
-.. rubric:: ¸½×¢
+.. rubric:: é™„æ³¨
 
-.. [1] Èç¹ûÊ¹ÓÃÄ£°å»ò·þÎñÆ÷ÊÊÅäÆ÷,ÄÇµ±È»»¹ÐèÒªÏàÓ¦µÄÄ£°å»ò·þÎñÆ÷Ä£¿é.
+.. [1] å¦‚æžœä½¿ç”¨æ¨¡æ¿æˆ–æœåŠ¡å™¨é€‚é…å™¨,é‚£å½“ç„¶è¿˜éœ€è¦ç›¸åº”çš„æ¨¡æ¿æˆ–æœåŠ¡å™¨æ¨¡å—.
 
